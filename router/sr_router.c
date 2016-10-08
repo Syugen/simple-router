@@ -71,14 +71,42 @@ void sr_handlepacket(struct sr_instance* sr,
         unsigned int len,
         char* interface/* lent */)
 {
-  /* REQUIRES */
-  assert(sr);
-  assert(packet);
-  assert(interface);
+    /* REQUIRES */
+    assert(sr);
+    assert(packet);
+    assert(interface);
 
-  printf("*** -> Received packet of length %d \n",len);
+    printf("*** -> Received packet of length %d \n",len);
 
-  /* fill in code here */
+    /* fill in code here */
+    struct sr_if *sr_interface = sr_get_interface(sr, interface);
+    struct sr_ethernet_hdr *ethernet_hdr = (struct sr_ethernet_hdr *) packet;
+
+    switch(ethertype(packet)) {
+        case ethertype_arp: /* hex: 0x0806, dec: 2054 */
+            sr_handle_arp_packet(sr, packet, len, sr_interface, ethernet_hdr);
+            break;
+        case ethertype_ip: /* hex: 0x0800, dec: 2048 */
+            sr_handle_ip_packet(sr, packet, len, sr_interface, ethernet_hdr);
+            break;
+        default:
+            Debug("Unknown Packet\n");
+    }
 
 }/* end sr_ForwardPacket */
 
+void sr_handle_arp_packet(struct sr_instance* sr,
+        uint8_t * packet/* lent */,
+        unsigned int len,
+        char* interface/* lent */)
+{
+    Debug("ARP Packet\n");
+}
+
+void sr_handle_ip_packet(struct sr_instance* sr,
+        uint8_t * packet/* lent */,
+        unsigned int len,
+        char* interface/* lent */)
+{
+    Debug("IP Packet\n");
+}
