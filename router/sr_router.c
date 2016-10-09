@@ -81,7 +81,7 @@ void sr_handlepacket(struct sr_instance* sr,
     /* fill in code here */
     struct sr_if* sr_interface = sr_get_interface(sr, interface);
     /*print_hdrs(packet, len);*/
-    hexdump((void *)packet, len);
+
     switch(ethertype(packet)) {
         case ethertype_arp: /* hex: 0x0806, dec: 2054 */
             sr_handle_arp_packet(sr, packet, len, sr_interface);
@@ -95,12 +95,19 @@ void sr_handlepacket(struct sr_instance* sr,
 
 }/* end sr_ForwardPacket */
 
+/* Handles ARP Packet:
+   1) Check Request/Reply?
+   2) Store source info in arp table.
+   2) If request -> if have the info, send back. if not, don't reply.
+   3) If reply -> store the wanted info in arp table.
+   */
+
 void sr_handle_arp_packet(struct sr_instance* sr,
         uint8_t* packet/* lent */,
         unsigned int len,
         struct sr_if* interface/* lent */)
 {
-    /*sr_ethernet_hdr_t* ethernet_hdr = (sr_ethernet_hdr_t*) packet;*/
+    sr_ethernet_hdr_t* ethernet_hdr = (sr_ethernet_hdr_t*) packet;
     sr_arp_hdr_t* arp_hdr = (sr_arp_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
 
     switch(htons(arp_hdr->ar_op)) {
