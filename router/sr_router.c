@@ -78,7 +78,7 @@ void sr_handlepacket(struct sr_instance* sr,
     assert(interface);
 
     printf("*** -> Received packet of length %d \n",len);
-
+    hexdump(packet, len);
     /* fill in code here */
     struct sr_if* sr_interface = sr_get_interface(sr, interface);
 
@@ -142,27 +142,13 @@ void sr_handle_arp_request(struct sr_instance* sr,
     memcpy(re_arp_hdr, arp_hdr, sizeof(sr_arp_hdr_t));
     memcpy(re_arp_hdr->ar_sha, interface->addr, ETHER_ADDR_LEN);
     memcpy(re_arp_hdr->ar_tha, arp_hdr->ar_sha, ETHER_ADDR_LEN);
+    re_arp_hdr->ar_op = htons(arp_op_reply);
+    re_arp_hdr->ar_sip = arp_hdr->ar_tip;
+    re_arp_hdr->ar_tip = arp_hdr->ar_sip;
 
+    printf("Replying the ARP request...\n");
     hexdump((void*)re_packet, len);
     sr_send_packet(sr, re_packet, len, interface->name);
-/*
-    re_arp_hdr->ar_hrd = arp_hdr->ar_hrd;
-    re_arp_hdr->ar_pro = arp_hdr->ar_pro;
-    re_arp_hdr->ar_hln = arp_hdr->ar_hln;
-    re_arp_hdr->ar_pln = arp_hdr->ar_pln;
-    re_arp_hdr->ar_op = htons(ARP_REPLY);
-    int i;
-    for (i = 0; i < ETHER_ADDR_LEN; i++)
-    {
-        re_arp_hdr->ar_sha[i] = (uint8_t) (interface->addr[i]);
-    }
-    re_arp_hdr->ar_sip = arp_hdr->ar_tip;
-    for (i = 0; i < ETHER_ADDR_LEN; i++)
-    {
-        re_arp_hdr->ar_tha[i] = arp_hdr->ar_sha[i];
-    }
-    re_arp_hdr->ar_tip = arp_hdr->ar_sip;
-*/
 }
 
 void sr_handle_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_hdr, struct sr_if* interface)
