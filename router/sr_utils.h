@@ -1,3 +1,10 @@
+#ifndef _HEXDUMP_H
+#define _HEXDUMP_H
+
+void hexdump(void *mem, unsigned int len);
+
+#endif
+
 /*
  *  Copyright (c) 2009 Roger Liao <rogliao@cs.stanford.edu>
  *  All rights reserved.

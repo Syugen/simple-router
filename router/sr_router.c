@@ -94,6 +94,13 @@ void sr_handlepacket(struct sr_instance* sr,
 
 }/* end sr_ForwardPacket */
 
+/* Handles ARP Packet:
+   1) Check Request/Reply?
+   2) Store source info in arp table.
+   2) If request -> if have the info, send back. if not, don't reply.
+   3) If reply -> store the wanted info in arp table.
+   */
+
 void sr_handle_arp_packet(struct sr_instance* sr,
         uint8_t* packet/* lent */,
         unsigned int len,
@@ -102,13 +109,53 @@ void sr_handle_arp_packet(struct sr_instance* sr,
     sr_ethernet_hdr_t* ethernet_hdr = (sr_ethernet_hdr_t*) packet;
     sr_arp_hdr_t* arp_hdr = (sr_arp_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
 
-    switch(arp_hdr->ar_op) {
+    switch(htons(arp_hdr->ar_op)) {
         case arp_op_request: /* 0x0001 */
-            Debug("Requesting!!!!!\n");
+            sr_handle_arp_request(sr, arp_hdr, interface);
             break;
         case arp_op_reply: /* 0x0002 */
-            Debug("Replying!!!!!!!\n");
+            sr_handle_arp_reply(sr, arp_hdr, interface);
+            break;
+        default:
+            printf("Unknown ARP type\n");
     }
+}
+
+void sr_handle_arp_request(struct sr_instance* sr,
+                           sr_arp_hdr_t* arp_hdr,
+                           struct sr_if* interface)
+{
+    printf("Requesting!!!!!\n");
+
+    sr_arp_hdr_t* re_arp_hdr = (sr_arp_hdr_t*) (malloc(sizeof(sr_arp_hdr_t)));
+    re_arp_hdr->ar_hrd = arp_hdr->ar_hrd;
+    re_arp_hdr->ar_pro = arp_hdr->ar_pro;
+    re_arp_hdr->ar_hln = arp_hdr->ar_hln;
+    re_arp_hdr->ar_pln = arp_hdr->ar_pln;
+    re_arp_hdr->ar_op = htons(ARP_REPLY);
+    int i;
+    for (i = 0; i < ETHER_ADDR_LEN; i++)
+    {
+        re_arp_hdr->ar_sha[i] = (uint8_t) (interface->addr[i]);
+    }
+    /* !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
+    /* Source protocol address */
+    re_arp_hdr->ar_sip = arp_hdr->ar_tip;
+
+    /* Target hardware address */
+    for (int i = 0; i < ETHER_ADDR_LEN; i++)
+    {
+        re_arp_hdr->ar_tha[i] = arp_hdr->ar_sha[i];
+    }
+
+    /* Target protocol address */
+    re_arp_hdr->ar_tip = arp_hdr->ar_sip;
+
+}
+
+void sr_handle_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_hdr)
+{
+    printf("Replying!!!!!!!\n");
 }
 
 void sr_handle_ip_packet(struct sr_instance* sr,
