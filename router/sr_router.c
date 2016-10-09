@@ -45,7 +45,7 @@ void sr_init(struct sr_instance* sr)
     pthread_t thread;
 
     pthread_create(&thread, &(sr->attr), sr_arpcache_timeout, sr);
-    
+
     /* Add initialization code here! */
 
 } /* -- sr_init -- */
@@ -80,8 +80,7 @@ void sr_handlepacket(struct sr_instance* sr,
 
     /* fill in code here */
     struct sr_if* sr_interface = sr_get_interface(sr, interface);
-    /*print_hdrs(packet, len);*/
-    
+
     switch(ethertype(packet)) {
         case ethertype_arp: /* hex: 0x0806, dec: 2054 */
             sr_handle_arp_packet(sr, packet, len, sr_interface);
@@ -102,16 +101,13 @@ void sr_handle_arp_packet(struct sr_instance* sr,
 {
     sr_ethernet_hdr_t* ethernet_hdr = (sr_ethernet_hdr_t*) packet;
     sr_arp_hdr_t* arp_hdr = (sr_arp_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
-    
-    switch(htons(arp_hdr->ar_op)) {
+
+    switch(arp_hdr->ar_op) {
         case arp_op_request: /* 0x0001 */
-            printf("Requesting!!!!!\n");
+            Debug("Requesting!!!!!\n");
             break;
         case arp_op_reply: /* 0x0002 */
-            printf("Replying!!!!!!!\n");
-            break;
-        default:
-            printf("Unknown ARP type\n");
+            Debug("Replying!!!!!!!\n");
     }
 }
 
