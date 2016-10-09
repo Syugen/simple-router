@@ -79,9 +79,8 @@ void sr_handlepacket(struct sr_instance* sr,
     printf("*** -> Received packet of length %d \n",len);
 
     /* fill in code here */
-    struct sr_if *sr_interface = sr_get_interface(sr, interface);
-    /*struct sr_ethernet_hdr *ethernet_hdr = (struct sr_ethernet_hdr *) packet;*/
-
+    struct sr_if* sr_interface = sr_get_interface(sr, interface);
+    
     switch(ethertype(packet)) {
         case ethertype_arp: /* hex: 0x0806, dec: 2054 */
             sr_handle_arp_packet(sr, packet, len, sr_interface);
@@ -96,15 +95,24 @@ void sr_handlepacket(struct sr_instance* sr,
 }/* end sr_ForwardPacket */
 
 void sr_handle_arp_packet(struct sr_instance* sr,
-        uint8_t * packet/* lent */,
+        uint8_t* packet/* lent */,
         unsigned int len,
         struct sr_if* interface/* lent */)
 {
-    Debug("ARP Packet\n");
+    sr_ethernet_hdr_t* ethernet_hdr = (sr_ethernet_hdr_t*) packet;
+    sr_arp_hdr_t* arp_hdr = (sr_arp_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
+    
+    switch(arp_hdr->ar_op) {
+        case arp_op_request: /* 0x0001 */
+            Debug("Requesting!!!!!\n");
+            break;
+        case arp_op_reply: /* 0x0002 */
+            Debug("Replying!!!!!!!\n");
+    }
 }
 
 void sr_handle_ip_packet(struct sr_instance* sr,
-        uint8_t * packet/* lent */,
+        uint8_t* packet/* lent */,
         unsigned int len,
         struct sr_if* interface/* lent */)
 {
