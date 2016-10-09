@@ -80,14 +80,14 @@ void sr_handlepacket(struct sr_instance* sr,
 
     /* fill in code here */
     struct sr_if *sr_interface = sr_get_interface(sr, interface);
-    struct sr_ethernet_hdr *ethernet_hdr = (struct sr_ethernet_hdr *) packet;
+    /*struct sr_ethernet_hdr *ethernet_hdr = (struct sr_ethernet_hdr *) packet;*/
 
     switch(ethertype(packet)) {
         case ethertype_arp: /* hex: 0x0806, dec: 2054 */
-            sr_handle_arp_packet(sr, packet, len, sr_interface, ethernet_hdr);
+            sr_handle_arp_packet(sr, packet, len, sr_interface);
             break;
         case ethertype_ip: /* hex: 0x0800, dec: 2048 */
-            sr_handle_ip_packet(sr, packet, len, sr_interface, ethernet_hdr);
+            sr_handle_ip_packet(sr, packet, len, sr_interface);
             break;
         default:
             Debug("Unknown Packet\n");
@@ -98,7 +98,7 @@ void sr_handlepacket(struct sr_instance* sr,
 void sr_handle_arp_packet(struct sr_instance* sr,
         uint8_t * packet/* lent */,
         unsigned int len,
-        char* interface/* lent */)
+        struct sr_if* interface/* lent */)
 {
     Debug("ARP Packet\n");
 }
@@ -106,7 +106,7 @@ void sr_handle_arp_packet(struct sr_instance* sr,
 void sr_handle_ip_packet(struct sr_instance* sr,
         uint8_t * packet/* lent */,
         unsigned int len,
-        char* interface/* lent */)
+        struct sr_if* interface/* lent */)
 {
     Debug("IP Packet\n");
 }
