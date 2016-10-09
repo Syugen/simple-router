@@ -71,7 +71,7 @@
 #include <pthread.h>
 #include "sr_if.h"
 
-#define SR_ARPCACHE_SZ    100  
+#define SR_ARPCACHE_SZ    100
 #define SR_ARPCACHE_TO    15.0
 
 struct sr_packet {
@@ -82,18 +82,18 @@ struct sr_packet {
 };
 
 struct sr_arpentry {
-    unsigned char mac[6]; 
+    unsigned char mac[6];
     uint32_t ip;                /* IP addr in network byte order */
-    time_t added;         
+    time_t added;
     int valid;
 };
 
 struct sr_arpreq {
     uint32_t ip;
-    time_t sent;                /* Last time this ARP request was sent. You 
-                                   should update this. If the ARP request was 
+    time_t sent;                /* Last time this ARP request was sent. You
+                                   should update this. If the ARP request was
                                    never sent, will be 0. */
-    uint32_t times_sent;        /* Number of times this request was sent. You 
+    uint32_t times_sent;        /* Number of times this request was sent. You
                                    should update this. */
     struct sr_packet *packets;  /* List of pkts waiting on this req to finish */
     struct sr_arpreq *next;
@@ -106,7 +106,7 @@ struct sr_arpcache {
     pthread_mutexattr_t attr;
 };
 
-/* Checks if an IP->MAC mapping is in the cache. IP is in network byte order. 
+/* Checks if an IP->MAC mapping is in the cache. IP is in network byte order.
    You must free the returned structure if it is not NULL. */
 struct sr_arpentry *sr_arpcache_lookup(struct sr_arpcache *cache, uint32_t ip);
 

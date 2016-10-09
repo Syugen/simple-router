@@ -81,7 +81,6 @@ void sr_handlepacket(struct sr_instance* sr,
 
     /* fill in code here */
     struct sr_if* sr_interface = sr_get_interface(sr, interface);
-    /*print_hdrs(packet, len);*/
 
     switch(ethertype(packet)) {
         case ethertype_arp: /* hex: 0x0806, dec: 2054 */
