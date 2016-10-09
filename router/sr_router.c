@@ -149,6 +149,7 @@ void sr_handle_arp_request(struct sr_instance* sr,
     printf("Replying the ARP request...\n");
     hexdump((void*)re_packet, len);
     sr_send_packet(sr, re_packet, len, interface->name);
+    free(re_packet);
 }
 
 void sr_handle_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_hdr, struct sr_if* interface)
