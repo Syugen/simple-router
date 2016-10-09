@@ -129,22 +129,27 @@ void sr_handle_arp_request(struct sr_instance* sr,
 {
     printf("Requesting!!!!!\n");
 
-
+    /* re_packet: the ARP reply message */
     int len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_arp_hdr_t);
     uint8_t* re_packet = (uint8_t*) malloc(len);
 
+    /* Set the ethernet header of re_packet. Everything is the same as
+       ethernet_hdr except the MAC address of source and destination. */
     sr_ethernet_hdr_t* re_ethernet_hdr = (sr_ethernet_hdr_t*) re_packet;
     memcpy(re_ethernet_hdr, ethernet_hdr, sizeof(sr_ethernet_hdr_t));
     memcpy(re_ethernet_hdr->ether_dhost, ethernet_hdr->ether_shost, ETHER_ADDR_LEN);
     memcpy(re_ethernet_hdr->ether_shost, interface->addr, ETHER_ADDR_LEN);
 
+    /* Set the ARP header of re_packet. Everything is the same as arp_hdr
+       except the MAC and IP address of source and destination as well as
+       the operation code (0x0002 for reply). */
     sr_arp_hdr_t* re_arp_hdr = (sr_arp_hdr_t*) (re_packet + sizeof(sr_ethernet_hdr_t));
     memcpy(re_arp_hdr, arp_hdr, sizeof(sr_arp_hdr_t));
     memcpy(re_arp_hdr->ar_sha, interface->addr, ETHER_ADDR_LEN);
     memcpy(re_arp_hdr->ar_tha, arp_hdr->ar_sha, ETHER_ADDR_LEN);
-    re_arp_hdr->ar_op = htons(arp_op_reply);
     re_arp_hdr->ar_sip = arp_hdr->ar_tip;
     re_arp_hdr->ar_tip = arp_hdr->ar_sip;
+    re_arp_hdr->ar_op = htons(arp_op_reply); /* 0x0002 */
 
     printf("Replying the ARP request...\n");
     hexdump((void*)re_packet, len);
