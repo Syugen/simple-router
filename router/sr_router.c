@@ -13,7 +13,8 @@
 
 #include <stdio.h>
 #include <assert.h>
-
+#include <stdlib.h>
+#include <string.h>
 
 #include "sr_if.h"
 #include "sr_rt.h"
@@ -112,7 +113,7 @@ void sr_handle_arp_packet(struct sr_instance* sr,
 
     switch(htons(arp_hdr->ar_op)) {
         case arp_op_request: /* 0x0001 */
-            sr_handle_arp_request(sr, arp_hdr, interface);
+            sr_handle_arp_request(sr, ethernet_hdr, arp_hdr, interface);
             break;
         case arp_op_reply: /* 0x0002 */
             sr_handle_arp_reply(sr, arp_hdr, interface);
@@ -123,12 +124,29 @@ void sr_handle_arp_packet(struct sr_instance* sr,
 }
 
 void sr_handle_arp_request(struct sr_instance* sr,
+                           sr_ethernet_hdr_t* ethernet_hdr,
                            sr_arp_hdr_t* arp_hdr,
                            struct sr_if* interface)
 {
     printf("Requesting!!!!!\n");
 
-    sr_arp_hdr_t* re_arp_hdr = (sr_arp_hdr_t*) (malloc(sizeof(sr_arp_hdr_t)));
+
+    int len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_arp_hdr_t);
+    uint8_t* re_packet = (uint8_t*) malloc(len);
+
+    sr_ethernet_hdr_t* re_ethernet_hdr = (sr_ethernet_hdr_t*) re_packet;
+    memcpy(re_ethernet_hdr, ethernet_hdr, sizeof(sr_ethernet_hdr_t));
+    memcpy(re_ethernet_hdr->ether_dhost, ethernet_hdr->ether_shost, ETHER_ADDR_LEN);
+    memcpy(re_ethernet_hdr->ether_shost, interface->addr, ETHER_ADDR_LEN);
+
+    sr_arp_hdr_t* re_arp_hdr = (sr_arp_hdr_t*) (re_packet + sizeof(sr_ethernet_hdr_t));
+    memcpy(re_arp_hdr, arp_hdr, sizeof(sr_arp_hdr_t));
+    memcpy(re_arp_hdr->ar_sha, interface->addr, ETHER_ADDR_LEN);
+    memcpy(re_arp_hdr->ar_tha, arp_hdr->ar_sha, ETHER_ADDR_LEN);
+
+    hexdump((void*)re_packet, len);
+    sr_send_packet(sr, re_packet, len, interface->name);
+/*
     re_arp_hdr->ar_hrd = arp_hdr->ar_hrd;
     re_arp_hdr->ar_pro = arp_hdr->ar_pro;
     re_arp_hdr->ar_hln = arp_hdr->ar_hln;
@@ -139,22 +157,16 @@ void sr_handle_arp_request(struct sr_instance* sr,
     {
         re_arp_hdr->ar_sha[i] = (uint8_t) (interface->addr[i]);
     }
-    /* !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!*/
-    /* Source protocol address */
     re_arp_hdr->ar_sip = arp_hdr->ar_tip;
-
-    /* Target hardware address */
-    for (int i = 0; i < ETHER_ADDR_LEN; i++)
+    for (i = 0; i < ETHER_ADDR_LEN; i++)
     {
         re_arp_hdr->ar_tha[i] = arp_hdr->ar_sha[i];
     }
-
-    /* Target protocol address */
     re_arp_hdr->ar_tip = arp_hdr->ar_sip;
-
+*/
 }
 
-void sr_handle_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_hdr)
+void sr_handle_arp_reply(struct sr_instance* sr, sr_arp_hdr_t* arp_hdr, struct sr_if* interface)
 {
     printf("Replying!!!!!!!\n");
 }

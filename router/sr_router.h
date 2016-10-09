@@ -69,7 +69,7 @@ void sr_init(struct sr_instance* );
 void sr_handlepacket(struct sr_instance* , uint8_t * , unsigned int , char* );
 void sr_handle_arp_packet(struct sr_instance* , uint8_t * , unsigned int , struct sr_if* );
 void sr_handle_ip_packet(struct sr_instance* , uint8_t * , unsigned int , struct sr_if* );
-void sr_handle_arp_request(struct sr_instance* , sr_arp_hdr_t* , struct sr_if* );
+void sr_handle_arp_request(struct sr_instance* , sr_ethernet_hdr_t* , sr_arp_hdr_t* , struct sr_if* );
 void sr_handle_arp_reply(struct sr_instance* , sr_arp_hdr_t* , struct sr_if* );
 
 /* -- sr_if.c -- */
