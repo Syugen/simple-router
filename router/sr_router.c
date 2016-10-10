@@ -211,7 +211,7 @@ void sr_handle_icmp_reply(struct sr_instance* sr,
                           uint8_t* packet,
                           struct sr_if* interface)
 {
-    sr_icmp_hdr_t icmp_hdr = (sr_icmp_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t)
-                                                     + sizeof(sr_ip_hdr_t));
+    sr_icmp_hdr_t* icmp_hdr = (sr_icmp_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t)
+                                                      + sizeof(sr_ip_hdr_t));
     printf("type: %d, codeL %d\n",icmp_hdr->icmp_type,icmp_hdr->icmp_code);
 }
