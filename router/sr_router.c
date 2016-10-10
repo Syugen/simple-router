@@ -84,11 +84,11 @@ void sr_handlepacket(struct sr_instance* sr,
 
     switch(ethertype(packet)) {
         case ethertype_arp: /* hex: 0x0806, dec: 2054 */
-            printf("       ARP Packet: ");
+            printf("       ARP Packet - ");
             sr_handle_arp_packet(sr, packet, len, sr_interface);
             break;
         case ethertype_ip: /* hex: 0x0800, dec: 2048 */
-            printf("       IP Packet: ");
+            printf("       IP Packet - ");
             sr_handle_ip_packet(sr, packet, len, sr_interface);
             break;
         default:
@@ -113,7 +113,7 @@ void sr_handle_arp_packet(struct sr_instance* sr,
     switch(htons(arp_hdr->ar_op)) {
         case arp_op_request: /* 0x0001 */
             printf("ARP Request\n");
-            sr_handle_arp_request(sr, packet, interface);
+            sr_handle_arp_request(sr, packet, len, interface);
             break;
         case arp_op_reply: /* 0x0002 */
             printf("ARP Reply\n");
@@ -126,11 +126,10 @@ void sr_handle_arp_packet(struct sr_instance* sr,
 
 void sr_handle_arp_request(struct sr_instance* sr,
                            uint8_t* packet,
+                           unsigned int len,
                            struct sr_if* interface)
 {
-    sr_ethernet_hdr_t* ethernet_hdr = (sr_ethernet_hdr_t*) packet;
     sr_arp_hdr_t* arp_hdr = (sr_arp_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
-
     printf("       Asking for MAC with IP ");
     printf_addr_ip_int(htonl(arp_hdr->ar_tip));
 
@@ -151,18 +150,17 @@ void sr_handle_arp_request(struct sr_instance* sr,
         return;
     }
 
-    /* Set the ethernet header of re_packet. Everything is the same as
-       ethernet_hdr except the MAC address of source and destination. */
+    /* Reply packet is similar to request, so copy first. */
+    memcpy(re_packet, packet, len);
+
+    /* Modify source and destination MAC address of Ethernet header. */
     sr_ethernet_hdr_t* re_ethernet_hdr = (sr_ethernet_hdr_t*) re_packet;
-    memcpy(re_ethernet_hdr, ethernet_hdr, sizeof(sr_ethernet_hdr_t));
-    memcpy(re_ethernet_hdr->ether_dhost, ethernet_hdr->ether_shost, ETHER_ADDR_LEN);
+    memcpy(re_ethernet_hdr->ether_dhost, re_ethernet_hdr->ether_shost, ETHER_ADDR_LEN);
     memcpy(re_ethernet_hdr->ether_shost, interface->addr, ETHER_ADDR_LEN);
 
-    /* Set the ARP header of re_packet. Everything is the same as arp_hdr
-       except the MAC and IP address of source and destination as well as
+    /* Modify source and destination MAC and IP address of ARP header as well as
        the operation code (0x0002 for reply). */
     sr_arp_hdr_t* re_arp_hdr = (sr_arp_hdr_t*) (re_packet + sizeof(sr_ethernet_hdr_t));
-    memcpy(re_arp_hdr, arp_hdr, sizeof(sr_arp_hdr_t));
     memcpy(re_arp_hdr->ar_sha, interface->addr, ETHER_ADDR_LEN);
     memcpy(re_arp_hdr->ar_tha, arp_hdr->ar_sha, ETHER_ADDR_LEN);
     re_arp_hdr->ar_sip = arp_hdr->ar_tip;
@@ -172,8 +170,9 @@ void sr_handle_arp_request(struct sr_instance* sr,
     /* Send the reply message. */
     printf(".\n       I'm with that IP. My MAC is ");
     printf_addr_eth(re_arp_hdr->ar_sha);
-    printf(".\n       Replying the ARP request...\n");
+    printf(".\n       Replying the ARP request... ");
     sr_send_packet(sr, re_packet, headers_len, interface->name);
+    printf("Done.\n");
     free(re_packet);
 }
 
@@ -194,11 +193,11 @@ void sr_handle_ip_packet(struct sr_instance* sr,
     if(ip_hdr->ip_dst == interface->ip) { /* No need to htonl. */
         switch(ip_hdr->ip_p) {
             case ip_protocol_icmp:
-                printf("ICMP for me!\n");
-                sr_handle_icmp_reply(sr, packet, interface);
+                printf("ICMP for me - ");
+                sr_handle_icmp_reply(sr, packet, len, interface);
                 break;
             default:
-                printf("I can only handle ICMP (No TCP, UDP). Dropping.\n");
+                printf("I can only handle ICMP for me (No TCP, UDP). Dropping.\n");
         }
     } else {  /* Not for me */
         printf("ICMP/TCP/UDP/... for ");
@@ -209,52 +208,44 @@ void sr_handle_ip_packet(struct sr_instance* sr,
 }
 
 void sr_handle_icmp_reply(struct sr_instance* sr,
-                          uint8_t* packet,
+                          uint8_t* packet, unsigned int len,
                           struct sr_if* interface)
 {
-    sr_ethernet_hdr_t* ethernet_hdr = (sr_ethernet_hdr_t*) packet;
-    sr_ip_hdr_t* ip_hdr = (sr_ip_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
-    sr_icmp_hdr_t* icmp_hdr = (sr_icmp_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t)
-                                                      + sizeof(sr_ip_hdr_t));
-
     /* Only handle the ICMP echo request (type == 8, code == 0). */
+    int icmp_offset = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t);
+    sr_icmp_hdr_t* icmp_hdr = (sr_icmp_hdr_t*)(packet + icmp_offset);
     if(icmp_hdr->icmp_type == 8 && icmp_hdr->icmp_code == 0) {
-        int headers_len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) +
-                          sizeof(sr_icmp_hdr_t);
+        printf("ICMP Echo Request.\n");
+
         uint8_t* re_packet;
-        if((re_packet = (uint8_t*) malloc(headers_len)) == NULL) {
+        if((re_packet = (uint8_t*) malloc(len)) == NULL) {
             printf("!----! Failed to malloc while replying ICMP echo request. Dropping.\n");
             return;
         }
+        memcpy(re_packet, packet, len);
 
-        /* Set the ethernet header of re_packet. Everything is the same as
-           ethernet_hdr except the MAC address of source and destination. */
         sr_ethernet_hdr_t* re_ethernet_hdr = (sr_ethernet_hdr_t*) re_packet;
-        memcpy(re_ethernet_hdr, ethernet_hdr, sizeof(sr_ethernet_hdr_t));
-        memcpy(re_ethernet_hdr->ether_dhost, ethernet_hdr->ether_shost, ETHER_ADDR_LEN);
+        memcpy(re_ethernet_hdr->ether_dhost, re_ethernet_hdr->ether_shost, ETHER_ADDR_LEN);
         memcpy(re_ethernet_hdr->ether_shost, interface->addr, ETHER_ADDR_LEN);
 
-        /* Set the IP header of re_packet. Everything is the same as ip_hdr
-           except the MAC and IP address of source and destination as well as
-           the operation code (0x0002 for reply). */
         sr_ip_hdr_t* re_ip_hdr = (sr_ip_hdr_t*) (re_packet + sizeof(sr_ethernet_hdr_t));
-        memcpy(re_ip_hdr, ip_hdr, sizeof(sr_ip_hdr_t));
+        re_ip_hdr->ip_ttl = 100;
         re_ip_hdr->ip_dst = re_ip_hdr->ip_src;
         re_ip_hdr->ip_src = interface->ip;
+        re_ip_hdr->ip_sum = 0;
+        re_ip_hdr->ip_sum = cksum(re_ip_hdr, sizeof(sr_ip_hdr_t));
 
-        /* Set the ICMP header. */
-        sr_icmp_hdr_t* re_icmp_hdr = (sr_icmp_hdr_t*)(re_packet +
-                                      sizeof(sr_ethernet_hdr_t) +
-                                      sizeof(sr_ip_hdr_t));
+        sr_icmp_hdr_t* re_icmp_hdr = (sr_icmp_hdr_t*)(re_packet + icmp_offset);
         re_icmp_hdr->icmp_type = 0;
         re_icmp_hdr->icmp_code = 0;
-        re_icmp_hdr->icmp_sum = cksum(icmp_hdr, sizeof(sr_icmp_hdr_t));
+        re_icmp_hdr->icmp_sum = 0;
+        re_icmp_hdr->icmp_sum = cksum(re_icmp_hdr, sizeof(sr_icmp_hdr_t));
 
-        /* Send the reply message. */
-        printf(".\n       Replying the ICMP echo request...\n");
-        sr_send_packet(sr, re_packet, headers_len, interface->name);
+        printf("       Replying the ICMP echo request... ");
+        sr_send_packet(sr, re_packet, len, interface->name);
+        printf("Done.\n");
         free(re_packet);
     } else {
-        printf("       I can only handle ICMP echo request. Dropping.\n");
+        printf("\n       I can only handle ICMP echo request. Dropping.\n");
     }
 }
