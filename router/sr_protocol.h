@@ -77,7 +77,7 @@
 #define ICMP_DATA_SIZE 28
 
 
-/* Structure of a ICMP header
+/* Structure of an ICMP header
  */
 struct sr_icmp_hdr {
   uint8_t icmp_type;

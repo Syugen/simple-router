@@ -1,0 +1,37 @@
+main
+1. 接受各种optional arguments
+2. sr_connect_to_server
+3. sr_init
+4. while(sr_read_from_server)
+5. 结束
+
+sr_read_from_server
+1. 首先从socket接收4字节整形数据，为接收信息总长度len
+2. 再从socket接收len-4字节，其中前四字节为整形数据，为command
+3. command分为多种VNSOPEN/CLOSE/PACKET/BANNER/HWINFO
+   以及VNS_RTABLE/OPEN_TEMPLATE/AUTH_REQUEST/AUTH_REPLY/AUTH_STATUS
+4. switch分情况处理
+
+==========
+
+main程序开始后，在结束了argument判断以及用sr_load_rt_wrap(sr_main.c)打印出routing table后，
+在main第2步sr_connect_to_server(sr_vns_comm.c)中运行sr_read_from_server(sr_vns_comm.c)，
+接收到一个长度为28字节，command代码为128(VNS_AUTH_REQUEST)的消息，为授权信息。
+格式为[4B len][4B command][(20B) auth_key]
+switch后执行sr_handle_auth_request(sr_vns_comm.c)，进行授权（具体原理未知）。
+若成功则发送一个command代码为512(VNS_AUTH_STATUS)的消息。格式为[4B len][4B command][1B OK][(58B) msg]
+其中msg为"authenticated IPv4Address(TCP, '127.0.0.1', 43667) as user"
+
+继续马上同样在sr_connect_to_server收到上述发送的消息，长度为67字节。
+switch后执行sr_handle_auth_status(sr_vns_comm.c)，若OK为1则打印"successfully authenticated as (sr->user)"
+（问题：这两个消息是怎么产生的，为什么直接从socket用recv就能收到？）
+
+结束第2步后又用sr_load_rt_wrap打印一遍routing table。然后sr_init（尚未研究）
+
+进入while循环，读取一个消息，长度为656字节，command代码为16(VNSHWINFO)
+格式为[4B len][4B command][36B HW Struct]*18
+switch后执行sr_handle_hwinfo(sr_vns_comm.c)，将3个interface的各6项硬件信息(HW)，共18个struct全部DEBUG到屏幕
+在其结尾执行sr_print_if_list(sr_if.c)打印所有interface。
+之后回到switch执行下一句sr_verify_routing_table(sr_main.c)（应该是验证routing table？没研究）
+
+第二次while循环，卡在recv等待消息。
