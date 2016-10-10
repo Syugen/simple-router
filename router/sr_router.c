@@ -135,10 +135,11 @@ void sr_handle_arp_request(struct sr_instance* sr,
     printf_addr_ip_int(htonl(arp_hdr->ar_tip));
 
     /* Check if I am the target. If not, don't reply. */
+    /* TODO Maybe need while loop to iterate all IP addresses of interface? */
     if(interface->ip != arp_hdr->ar_tip) { /* No need to htonl. */
         printf("       I'm not with that IP. My IP is ");
         printf_addr_ip_int(htonl(interface->ip));
-        printf(". Dropping.\n");
+        printf(". Can't help you. Dropping.\n");
         return;
     }
 
@@ -146,7 +147,7 @@ void sr_handle_arp_request(struct sr_instance* sr,
     int headers_len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_arp_hdr_t);
     uint8_t* re_packet;
     if((re_packet = (uint8_t*) malloc(headers_len)) == NULL) {
-        printf("!----! Failed to malloc when replying ARP request. Dropping.\n");
+        printf("!----! Failed to malloc while replying ARP request. Dropping.\n");
         return;
     }
 
@@ -193,14 +194,14 @@ void sr_handle_ip_packet(struct sr_instance* sr,
     if(ip_hdr->ip_dst == interface->ip) { /* No need to htonl. */
         switch(ip_hdr->ip_p) {
             case ip_protocol_icmp:
-                printf("Yeah！ ICMP for me!\n");
+                printf("ICMP for me!\n");
                 sr_handle_icmp_reply(sr, packet, interface);
                 break;
             default:
-                printf("I can only handle ICMP :(\n");
+                printf("I can only handle ICMP (No TCP, UDP). Dropping.\n");
         }
     } else {  /* Not for me */
-        printf("For ");
+        printf("ICMP/TCP/UDP/... for ");
         printf_addr_ip_int(htonl(ip_hdr->ip_dst));
         printf(". Forwarding... (Not implemented)\n");
         /* TODO */
@@ -211,7 +212,49 @@ void sr_handle_icmp_reply(struct sr_instance* sr,
                           uint8_t* packet,
                           struct sr_if* interface)
 {
+    sr_ethernet_hdr_t* ethernet_hdr = (sr_ethernet_hdr_t*) packet;
+    sr_ip_hdr_t* ip_hdr = (sr_ip_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
     sr_icmp_hdr_t* icmp_hdr = (sr_icmp_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t)
                                                       + sizeof(sr_ip_hdr_t));
-    printf("type: %d, codeL %d\n",icmp_hdr->icmp_type,icmp_hdr->icmp_code);
+
+    /* Only handle the ICMP echo request (type == 8, code == 0). */
+    if(icmp_hdr->icmp_type == 8 && icmp_hdr->icmp_code == 0) {
+        int headers_len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) +
+                          sizeof(sr_icmp_hdr_t);
+        uint8_t* re_packet;
+        if((re_packet = (uint8_t*) malloc(headers_len)) == NULL) {
+            printf("!----! Failed to malloc while replying ICMP echo request. Dropping.\n");
+            return;
+        }
+
+        /* Set the ethernet header of re_packet. Everything is the same as
+           ethernet_hdr except the MAC address of source and destination. */
+        sr_ethernet_hdr_t* re_ethernet_hdr = (sr_ethernet_hdr_t*) re_packet;
+        memcpy(re_ethernet_hdr, ethernet_hdr, sizeof(sr_ethernet_hdr_t));
+        memcpy(re_ethernet_hdr->ether_dhost, ethernet_hdr->ether_shost, ETHER_ADDR_LEN);
+        memcpy(re_ethernet_hdr->ether_shost, interface->addr, ETHER_ADDR_LEN);
+
+        /* Set the IP header of re_packet. Everything is the same as ip_hdr
+           except the MAC and IP address of source and destination as well as
+           the operation code (0x0002 for reply). */
+        sr_ip_hdr_t* re_ip_hdr = (sr_ip_hdr_t*) (re_packet + sizeof(sr_ethernet_hdr_t));
+        memcpy(re_ip_hdr, ip_hdr, sizeof(sr_ip_hdr_t));
+        re_ip_hdr->ip_dst = re_ip_hdr->ip_src;
+        re_ip_hdr->ip_src = interface->ip;
+
+        /* Set the ICMP header. */
+        sr_icmp_hdr_t* re_icmp_hdr = (sr_icmp_hdr_t*)(re_packet +
+                                      sizeof(sr_ethernet_hdr_t) +
+                                      sizeof(sr_ip_hdr_t));
+        re_icmp_hdr->icmp_type = 0;
+        re_icmp_hdr->icmp_code = 0;
+        re_icmp_hdr->icmp_sum = cksum(icmp_hdr, sizeof(sr_icmp_hdr_t));
+
+        /* Send the reply message. */
+        printf(".\n       Replying the ICMP echo request...\n");
+        sr_send_packet(sr, re_packet, headers_len, interface->name);
+        free(re_packet);
+    } else {
+        printf("       I can only handle ICMP echo request. Dropping.\n");
+    }
 }
