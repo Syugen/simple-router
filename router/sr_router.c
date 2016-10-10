@@ -109,13 +109,11 @@ void sr_handle_arp_packet(struct sr_instance* sr,
         unsigned int len,
         struct sr_if* interface/* lent */)
 {
-    sr_ethernet_hdr_t* ethernet_hdr = (sr_ethernet_hdr_t*) packet;
     sr_arp_hdr_t* arp_hdr = (sr_arp_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
-
     switch(htons(arp_hdr->ar_op)) {
         case arp_op_request: /* 0x0001 */
             printf("ARP Request\n");
-            sr_handle_arp_request(sr, ethernet_hdr, arp_hdr, interface);
+            sr_handle_arp_request(sr, packet, interface);
             break;
         case arp_op_reply: /* 0x0002 */
             printf("ARP Reply\n");
@@ -127,10 +125,12 @@ void sr_handle_arp_packet(struct sr_instance* sr,
 }
 
 void sr_handle_arp_request(struct sr_instance* sr,
-                           sr_ethernet_hdr_t* ethernet_hdr,
-                           sr_arp_hdr_t* arp_hdr,
+                           uint8_t* packet,
                            struct sr_if* interface)
 {
+    sr_ethernet_hdr_t* ethernet_hdr = (sr_ethernet_hdr_t*) packet;
+    sr_arp_hdr_t* arp_hdr = (sr_arp_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
+
     printf("       Asking for MAC with IP ");
     printf_addr_ip_int(htonl(arp_hdr->ar_tip));
 
@@ -143,8 +143,12 @@ void sr_handle_arp_request(struct sr_instance* sr,
     }
 
     /* re_packet: the ARP reply message */
-    int len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_arp_hdr_t);
-    uint8_t* re_packet = (uint8_t*) malloc(len);
+    int headers_len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_arp_hdr_t);
+    uint8_t* re_packet;
+    if((re_packet = (uint8_t*) malloc(headers_len)) == NULL) {
+        printf("!----! Failed to malloc when replying ARP request. Dropping.\n");
+        return;
+    }
 
     /* Set the ethernet header of re_packet. Everything is the same as
        ethernet_hdr except the MAC address of source and destination. */
@@ -164,10 +168,11 @@ void sr_handle_arp_request(struct sr_instance* sr,
     re_arp_hdr->ar_tip = arp_hdr->ar_sip;
     re_arp_hdr->ar_op = htons(arp_op_reply); /* 0x0002 */
 
+    /* Send the reply message. */
     printf(".\n       I'm with that IP. My MAC is ");
     printf_addr_eth(re_arp_hdr->ar_sha);
     printf(".\n       Replying the ARP request...\n");
-    sr_send_packet(sr, re_packet, len, interface->name);
+    sr_send_packet(sr, re_packet, headers_len, interface->name);
     free(re_packet);
 }
 
@@ -185,15 +190,28 @@ void sr_handle_ip_packet(struct sr_instance* sr,
 */    sr_ip_hdr_t* ip_hdr = (sr_ip_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
 
     /* For me */
-    if(htonl(ip_hdr->ip_dst) == htonl(interface->ip)) { /* It's OK if no convertion. */
+    if(ip_hdr->ip_dst == interface->ip) { /* No need to htonl. */
         switch(ip_hdr->ip_p) {
             case ip_protocol_icmp:
                 printf("Yeah！ ICMP for me!\n");
+                sr_handle_icmp_reply(sr, packet, interface);
                 break;
             default:
                 printf("I can only handle ICMP :(\n");
         }
     } else {  /* Not for me */
-        printf("Not for me. OK...\n");
+        printf("For ");
+        printf_addr_ip_int(htonl(ip_hdr->ip_dst));
+        printf(". Forwarding... (Not implemented)\n");
+        /* TODO */
     }
+}
+
+void sr_handle_icmp_reply(struct sr_instance* sr,
+                          uint8_t* packet,
+                          struct sr_if* interface)
+{
+    sr_icmp_hdr_t icmp_hdr = (sr_icmp_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t)
+                                                     + sizeof(sr_ip_hdr_t));
+    printf("type: %d, codeL %d\n",icmp_hdr->icmp_type,icmp_hdr->icmp_code);
 }
