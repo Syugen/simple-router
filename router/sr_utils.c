@@ -93,6 +93,18 @@ void print_addr_eth(uint8_t *addr) {
   fprintf(stderr, "\n");
 }
 
+/* Added by Syugen for debugging purpose. */
+void printf_addr_eth(uint8_t *addr) {
+  int pos = 0;
+  uint8_t cur;
+  for (; pos < ETHER_ADDR_LEN; pos++) {
+    cur = addr[pos];
+    if (pos > 0)
+      printf(":");
+    printf("%02X", cur);
+  }
+}
+
 /* Prints out IP address as a string from in_addr */
 void print_addr_ip(struct in_addr address) {
   char buf[INET_ADDRSTRLEN];
@@ -114,6 +126,17 @@ void print_addr_ip_int(uint32_t ip) {
   fprintf(stderr, "%d\n", curOctet);
 }
 
+/* Added by Syugen for debugging purpose. */
+void printf_addr_ip_int(uint32_t ip) {
+  uint32_t curOctet = ip >> 24;
+  printf("%d.", curOctet);
+  curOctet = (ip << 8) >> 24;
+  printf("%d.", curOctet);
+  curOctet = (ip << 16) >> 24;
+  printf("%d.", curOctet);
+  curOctet = (ip << 24) >> 24;
+  printf("%d", curOctet);
+}
 
 /* Prints out fields in Ethernet header. */
 void print_hdr_eth(uint8_t *buf) {

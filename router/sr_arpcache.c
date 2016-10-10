@@ -13,7 +13,7 @@
 
 void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *req) {
     /* "now" means time(0) */
-    if (difftime(time(0), req->sent) > 1.0) {
+/*    if (difftime(time(0), req->sent) > 1.0) {
         if (req->times_sent >= 5) {
             struct sr_packet *packet = req->packets;
             while (packet) {
@@ -26,7 +26,7 @@ void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *req) {
             req->sent = time(0);
             req->times_sent++;
         }
-    }
+    }*/
 }
 
 /*

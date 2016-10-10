@@ -78,21 +78,21 @@ void sr_handlepacket(struct sr_instance* sr,
     assert(interface);
 
     printf("*** -> Received packet of length %d \n",len);
-    hexdump(packet, len);
     /* fill in code here */
+    /*hexdump(packet, len);*/
     struct sr_if* sr_interface = sr_get_interface(sr, interface);
 
     switch(ethertype(packet)) {
         case ethertype_arp: /* hex: 0x0806, dec: 2054 */
-            printf("\tARP Packet\n");
+            printf("       ARP Packet: ");
             sr_handle_arp_packet(sr, packet, len, sr_interface);
             break;
         case ethertype_ip: /* hex: 0x0800, dec: 2048 */
-            printf("\tIP Packet\n");
+            printf("       IP Packet: ");
             sr_handle_ip_packet(sr, packet, len, sr_interface);
             break;
         default:
-            printf("\tUnknown Packet\n");
+            printf("       Unknown Packet. Dropping.\n");
     }
 
 }/* end sr_ForwardPacket */
@@ -114,15 +114,15 @@ void sr_handle_arp_packet(struct sr_instance* sr,
 
     switch(htons(arp_hdr->ar_op)) {
         case arp_op_request: /* 0x0001 */
-            printf("\t\tARP Request\n");
+            printf("ARP Request\n");
             sr_handle_arp_request(sr, ethernet_hdr, arp_hdr, interface);
             break;
         case arp_op_reply: /* 0x0002 */
-            printf("\t\tARP Reply\n");
+            printf("ARP Reply\n");
             sr_handle_arp_reply(sr, arp_hdr, interface);
             break;
         default:
-            printf("\t\tUnknown ARP type\n");
+            printf("Unknown ARP type. Dropping.\n");
     }
 }
 
@@ -131,7 +131,16 @@ void sr_handle_arp_request(struct sr_instance* sr,
                            sr_arp_hdr_t* arp_hdr,
                            struct sr_if* interface)
 {
-    /* TODO Check first if my arp table contains the requested IP. */
+    printf("       Asking for MAC with IP ");
+    printf_addr_ip_int(htonl(arp_hdr->ar_tip));
+
+    /* Check if I am the target. If not, don't reply. */
+    if(interface->ip != arp_hdr->ar_tip) { /* No need to htonl. */
+        printf("       I'm not with that IP. My IP is ");
+        printf_addr_ip_int(htonl(interface->ip));
+        printf(". Dropping.\n");
+        return;
+    }
 
     /* re_packet: the ARP reply message */
     int len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_arp_hdr_t);
@@ -155,8 +164,9 @@ void sr_handle_arp_request(struct sr_instance* sr,
     re_arp_hdr->ar_tip = arp_hdr->ar_sip;
     re_arp_hdr->ar_op = htons(arp_op_reply); /* 0x0002 */
 
-    printf("\t\tReplying the ARP request...\n");
-    /*hexdump((void*)re_packet, len);*/
+    printf(".\n       I'm with that IP. My MAC is ");
+    printf_addr_eth(re_arp_hdr->ar_sha);
+    printf(".\n       Replying the ARP request...\n");
     sr_send_packet(sr, re_packet, len, interface->name);
     free(re_packet);
 }
@@ -171,13 +181,11 @@ void sr_handle_ip_packet(struct sr_instance* sr,
         unsigned int len,
         struct sr_if* interface/* lent */)
 {
-    sr_ethernet_hdr_t* ethernet_hdr = (sr_ethernet_hdr_t*) packet;
-    sr_ip_hdr_t* ip_hdr = (sr_ip_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
+/*    sr_ethernet_hdr_t* ethernet_hdr = (sr_ethernet_hdr_t*) packet;
+*/    sr_ip_hdr_t* ip_hdr = (sr_ip_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
 
-    print_addr_ip_int(ip_hdr->ip_dst);
-    print_addr_ip_int(interface->ip);
     /* For me */
-    if(ip_hdr->ip_dst == interface->ip) {
+    if(htonl(ip_hdr->ip_dst) == htonl(interface->ip)) { /* It's OK if no convertion. */
         switch(ip_hdr->ip_p) {
             case ip_protocol_icmp:
                 printf("Yeah！ ICMP for me!\n");
