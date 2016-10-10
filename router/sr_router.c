@@ -84,13 +84,15 @@ void sr_handlepacket(struct sr_instance* sr,
 
     switch(ethertype(packet)) {
         case ethertype_arp: /* hex: 0x0806, dec: 2054 */
+            printf("\tARP Packet\n");
             sr_handle_arp_packet(sr, packet, len, sr_interface);
             break;
         case ethertype_ip: /* hex: 0x0800, dec: 2048 */
+            printf("\tIP Packet\n");
             sr_handle_ip_packet(sr, packet, len, sr_interface);
             break;
         default:
-            Debug("Unknown Packet\n");
+            printf("\tUnknown Packet\n");
     }
 
 }/* end sr_ForwardPacket */
@@ -112,13 +114,15 @@ void sr_handle_arp_packet(struct sr_instance* sr,
 
     switch(htons(arp_hdr->ar_op)) {
         case arp_op_request: /* 0x0001 */
+            printf("\t\tARP Request\n");
             sr_handle_arp_request(sr, ethernet_hdr, arp_hdr, interface);
             break;
         case arp_op_reply: /* 0x0002 */
+            printf("\t\tARP Reply\n");
             sr_handle_arp_reply(sr, arp_hdr, interface);
             break;
         default:
-            printf("Unknown ARP type\n");
+            printf("\t\tUnknown ARP type\n");
     }
 }
 
@@ -127,7 +131,7 @@ void sr_handle_arp_request(struct sr_instance* sr,
                            sr_arp_hdr_t* arp_hdr,
                            struct sr_if* interface)
 {
-    printf("Requesting!!!!!\n");
+    /* TODO Check first if my arp table contains the requested IP. */
 
     /* re_packet: the ARP reply message */
     int len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_arp_hdr_t);
@@ -151,8 +155,8 @@ void sr_handle_arp_request(struct sr_instance* sr,
     re_arp_hdr->ar_tip = arp_hdr->ar_sip;
     re_arp_hdr->ar_op = htons(arp_op_reply); /* 0x0002 */
 
-    printf("Replying the ARP request...\n");
-    hexdump((void*)re_packet, len);
+    printf("\t\tReplying the ARP request...\n");
+    /*hexdump((void*)re_packet, len);*/
     sr_send_packet(sr, re_packet, len, interface->name);
     free(re_packet);
 }
@@ -167,5 +171,21 @@ void sr_handle_ip_packet(struct sr_instance* sr,
         unsigned int len,
         struct sr_if* interface/* lent */)
 {
-    Debug("IP Packet\n");
+    sr_ethernet_hdr_t* ethernet_hdr = (sr_ethernet_hdr_t*) packet;
+    sr_ip_hdr_t* ip_hdr = (sr_ip_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
+
+    print_addr_ip_int(ip_hdr->ip_dst);
+    print_addr_ip_int(interface->ip);
+    /* For me */
+    if(ip_hdr->ip_dst == interface->ip) {
+        switch(ip_hdr->ip_p) {
+            case ip_protocol_icmp:
+                printf("Yeah！ ICMP for me!\n");
+                break;
+            default:
+                printf("I can only handle ICMP :(\n");
+        }
+    } else {  /* Not for me */
+        printf("Not for me. OK...\n");
+    }
 }
