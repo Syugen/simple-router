@@ -102,8 +102,7 @@ void sr_handlepacket(struct sr_instance* sr,
    2) Store source info in arp table.
    2) If request -> if have the info, send back. if not, don't reply.
    3) If reply -> store the wanted info in arp table.
-   */
-
+*/
 void sr_handle_arp_packet(struct sr_instance* sr,
         uint8_t* packet/* lent */,
         unsigned int len,
@@ -130,17 +129,16 @@ void sr_handle_arp_request(struct sr_instance* sr,
                            struct sr_if* interface)
 {
     sr_arp_hdr_t* arp_hdr = (sr_arp_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
-    printf("       Asking for MAC with IP ");
+    printf("       Asking for MAC with IP address ");
     printf_addr_ip_int(htonl(arp_hdr->ar_tip));
 
-    /* Check if I am the target. If not, don't reply. */
-    /* TODO Maybe need while loop to iterate all IP addresses of interface? */
-    if(interface->ip != arp_hdr->ar_tip) { /* No need to htonl. */
-        printf("       I'm not with that IP. My IP is ");
-        printf_addr_ip_int(htonl(interface->ip));
-        printf(". Can't help you. Dropping.\n");
+    /* Check the interface list if I am the target. If not, don't reply. */
+    if(!sr_if_contains_ip(interface, htonl(arp_hdr->ar_tip))) {
+        printf("       I don't have that IP address. Can't help you. Dropping.\n");
         return;
     }
+
+    /* TODO need to cache it if it has not been cached!!!!!!!!!!!!!!!!!! */
 
     /* re_packet: the ARP reply message */
     int headers_len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_arp_hdr_t);
@@ -168,7 +166,7 @@ void sr_handle_arp_request(struct sr_instance* sr,
     re_arp_hdr->ar_op = htons(arp_op_reply); /* 0x0002 */
 
     /* Send the reply message. */
-    printf(".\n       I'm with that IP. My MAC is ");
+    printf(".\n       I have that IP. My MAC is ");
     printf_addr_eth(re_arp_hdr->ar_sha);
     printf(".\n       Replying the ARP request... ");
     sr_send_packet(sr, re_packet, headers_len, interface->name);
@@ -186,11 +184,10 @@ void sr_handle_ip_packet(struct sr_instance* sr,
         unsigned int len,
         struct sr_if* interface/* lent */)
 {
-/*    sr_ethernet_hdr_t* ethernet_hdr = (sr_ethernet_hdr_t*) packet;
-*/    sr_ip_hdr_t* ip_hdr = (sr_ip_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
+    sr_ip_hdr_t* ip_hdr = (sr_ip_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
 
-    /* For me */
-    if(ip_hdr->ip_dst == interface->ip) { /* No need to htonl. */
+    /* IP Packet for me */
+    if(sr_if_contains_ip(interface, htonl(ip_hdr->ip_dst))) {
         switch(ip_hdr->ip_p) {
             case ip_protocol_icmp:
                 printf("ICMP for me - ");
@@ -222,6 +219,9 @@ void sr_handle_icmp_reply(struct sr_instance* sr,
             printf("!----! Failed to malloc while replying ICMP echo request. Dropping.\n");
             return;
         }
+
+        /* Almost everything including the payload is the same as the original
+           packet except for something in header. So copy first*/
         memcpy(re_packet, packet, len);
 
         sr_ethernet_hdr_t* re_ethernet_hdr = (sr_ethernet_hdr_t*) re_packet;
@@ -229,15 +229,14 @@ void sr_handle_icmp_reply(struct sr_instance* sr,
         memcpy(re_ethernet_hdr->ether_shost, interface->addr, ETHER_ADDR_LEN);
 
         sr_ip_hdr_t* re_ip_hdr = (sr_ip_hdr_t*) (re_packet + sizeof(sr_ethernet_hdr_t));
-        re_ip_hdr->ip_ttl = 100;
+        re_ip_hdr->ip_ttl = 100;                   /* TODO default 64, sr_solution 100 */
         re_ip_hdr->ip_dst = re_ip_hdr->ip_src;
         re_ip_hdr->ip_src = interface->ip;
         re_ip_hdr->ip_sum = 0;
         re_ip_hdr->ip_sum = cksum(re_ip_hdr, sizeof(sr_ip_hdr_t));
 
         sr_icmp_hdr_t* re_icmp_hdr = (sr_icmp_hdr_t*)(re_packet + icmp_offset);
-        re_icmp_hdr->icmp_type = 0;
-        re_icmp_hdr->icmp_code = 0;
+        re_icmp_hdr->icmp_type = re_icmp_hdr->icmp_code = 0;
         re_icmp_hdr->icmp_sum = 0;
         re_icmp_hdr->icmp_sum = cksum(re_icmp_hdr, sizeof(sr_icmp_hdr_t));
 
