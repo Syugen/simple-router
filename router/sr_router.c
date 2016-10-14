@@ -148,7 +148,7 @@ void sr_handle_arp_request(struct sr_instance* sr,
     sr_init_arp_hdr(re_packet, packet, interface);
 
     /* Send the reply message. */
-    printf(".\n       I have that IP. Replying the ARP request... ");
+    printf(".\n       I have that IP. Sending ARP reply... ");
     sr_send_packet(sr, re_packet, headers_len, interface->name);
     printf("Done.\n");
     free(re_packet);
@@ -187,7 +187,6 @@ void sr_handle_ip_packet(struct sr_instance* sr,
         printf_addr_ip_int(htonl(ip_hdr->ip_dst));
         printf(". Forwarding... (Not implemented)\n");
         sr_handle_ip_any_others(sr, packet, len, interface);
-        /* TODO */
     }
 }
 
@@ -209,7 +208,7 @@ void sr_handle_ip_icmp_me(struct sr_instance* sr,
         sr_init_ip_hdr(re_packet, packet, interface, ip_protocol_icmp);
         sr_init_icmp_hdr(re_packet, packet, 0, len - icmp_offset);
 
-        printf("       Replying the ICMP echo request... ");
+        printf("       Sending ICMP echo reply... ");
         sr_send_packet(sr, re_packet, len, interface->name);
         printf("Done.\n");
         free(re_packet);
@@ -230,6 +229,11 @@ void sr_handle_ip_tcpudp_me(struct sr_instance* sr,
     sr_init_ethernet_hdr(re_packet, packet, interface);
     sr_init_ip_hdr(re_packet, packet, interface, ip_protocol_icmp);
     sr_init_icmp_hdr(re_packet, packet, 3, 3);
+
+    printf("       Sending ICMP port unreachable... ");
+    sr_send_packet(sr, re_packet, headers_len, interface->name);
+    printf("Done.\n");
+    free(re_packet);
 }
 
 void sr_handle_ip_any_others(struct sr_instance* sr,
@@ -237,4 +241,6 @@ void sr_handle_ip_any_others(struct sr_instance* sr,
                              unsigned int len,
                              struct sr_if* interface)
 {
+    /*TODO*/
+    printf("       Told you. Not implemented yet\n");
 }

@@ -24,7 +24,7 @@ uint8_t* sr_malloc_packet(unsigned int len, char* message)
  * The type REMAINS UNCHANGED, that is, if packet is ARP, re_packet is also ARP.
  * Same for IP. */
 void sr_init_ethernet_hdr(uint8_t* re_packet,
-                          uint8_t * packet,
+                          uint8_t* packet,
                           struct sr_if* interface)
 {
     /* Reply packet is similar to request, so copy first. */
@@ -42,7 +42,7 @@ void sr_init_ethernet_hdr(uint8_t* re_packet,
  * the source of re_packet is set to be the address in the interface;
  * and the operation code is set to be reply (0x0002). */
 void sr_init_arp_hdr(uint8_t* re_packet,
-                     uint8_t * packet,
+                     uint8_t* packet,
                      struct sr_if* interface)
 {
     if(!packet) {
@@ -59,8 +59,12 @@ void sr_init_arp_hdr(uint8_t* re_packet,
     }
 }
 
+/* Initialize the IP header of re_packet.
+ * The destionation of re_packet is set to be the source of packet;
+ * the source of re_packet is set to be the address in the interface;
+ * and the ip protocol is set to be the given ip_protocol. */
 void sr_init_ip_hdr(uint8_t* re_packet,
-                    uint8_t * packet,
+                    uint8_t* packet,
                     struct sr_if* interface,
                     unsigned int ip_protocol)
 {
@@ -74,6 +78,9 @@ void sr_init_ip_hdr(uint8_t* re_packet,
     re_ip_hdr->ip_sum = cksum(re_ip_hdr, sizeof(sr_ip_hdr_t));
 }
 
+/* Initialize the ICMP header of re_packet.
+ * If type is 0 (echo request), then code_or_len refers to the length of the
+ * ICMP packet; otherwise, it refers to the code. */
 void sr_init_icmp_hdr(uint8_t* re_packet, uint8_t * packet,
                       unsigned int type, unsigned int code_or_len)
 {
