@@ -191,21 +191,29 @@ void sr_handle_ip_packet(struct sr_instance* sr,
         switch(ip_hdr->ip_p) {
             case ip_protocol_icmp:
                 printf("ICMP for me - ");
-                sr_handle_icmp_reply(sr, packet, len, interface);
+                sr_handle_ip_icmp_me(sr, packet, len, interface);
+                break;
+            case ip_protocol_tcp: /* Added in sr_protocol.h by our group */
+            case ip_protocol_udp: /* Added in sr_protocol.h by our group */
+                printf("TCP/UDP for me - ");
+                sr_handle_ip_tcpudp_me(sr, packet, len, interface);
                 break;
             default:
-                printf("I can only handle ICMP for me (No TCP, UDP). Dropping.\n");
+                printf("The protocol number of this IP packet is 0x%04d. ", ip_hdr->ip_p);
+                printf("Cannot handle such packet. Dropping.\n");
         }
     } else {  /* Not for me */
         printf("ICMP/TCP/UDP/... for ");
         printf_addr_ip_int(htonl(ip_hdr->ip_dst));
         printf(". Forwarding... (Not implemented)\n");
+        sr_handle_ip_any_others(sr, packet, len, interface);
         /* TODO */
     }
 }
 
-void sr_handle_icmp_reply(struct sr_instance* sr,
-                          uint8_t* packet, unsigned int len,
+void sr_handle_ip_icmp_me(struct sr_instance* sr,
+                          uint8_t* packet,
+                          unsigned int len,
                           struct sr_if* interface)
 {
     /* Only handle the ICMP echo request (type == 8, code == 0). */
@@ -247,4 +255,24 @@ void sr_handle_icmp_reply(struct sr_instance* sr,
     } else {
         printf("\n       I can only handle ICMP echo request. Dropping.\n");
     }
+}
+
+void sr_handle_ip_tcpudp_me(struct sr_instance* sr,
+                            uint8_t* packet,
+                            unsigned int len,
+                            struct sr_if* interface)
+{
+    int headers_len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_icmp_hdr_t);
+    uint8_t* re_packet;
+    if((re_packet = (uint8_t*) malloc(headers_len)) == NULL) {
+        printf("!----! Failed to malloc while replying ARP request. Dropping.\n");
+        return;
+    }
+}
+
+void sr_handle_ip_any_others(struct sr_instance* sr,
+                             uint8_t* packet,
+                             unsigned int len,
+                             struct sr_if* interface)
+{
 }

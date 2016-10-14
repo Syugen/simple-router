@@ -71,7 +71,9 @@ void sr_handle_arp_packet(struct sr_instance* , uint8_t * , unsigned int , struc
 void sr_handle_ip_packet(struct sr_instance* , uint8_t * , unsigned int , struct sr_if* );
 void sr_handle_arp_request(struct sr_instance* , uint8_t * , unsigned int , struct sr_if* );
 void sr_handle_arp_reply(struct sr_instance* , sr_arp_hdr_t* , struct sr_if* );
-void sr_handle_icmp_reply(struct sr_instance* , uint8_t * , unsigned int , struct sr_if* );
+void sr_handle_ip_icmp_me(struct sr_instance* , uint8_t * , unsigned int , struct sr_if* );
+void sr_handle_ip_tcpudp_me(struct sr_instance* , uint8_t * , unsigned int , struct sr_if* );
+void sr_handle_ip_any_others(struct sr_instance* , uint8_t * , unsigned int , struct sr_if* );
 
 /* -- sr_if.c -- */
 void sr_add_interface(struct sr_instance* , const char* );
