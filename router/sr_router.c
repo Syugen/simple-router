@@ -140,35 +140,15 @@ void sr_handle_arp_request(struct sr_instance* sr,
 
     /* TODO need to cache it if it has not been cached!!!!!!!!!!!!!!!!!! */
 
-    /* re_packet: the ARP reply message */
+    /* Create reply packet and initialize headers. */
     int headers_len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_arp_hdr_t);
-    uint8_t* re_packet;
-    if((re_packet = (uint8_t*) malloc(headers_len)) == NULL) {
-        printf("!----! Failed to malloc while replying ARP request. Dropping.\n");
-        return;
-    }
-
-    /* Reply packet is similar to request, so copy first. */
-    memcpy(re_packet, packet, len);
-
-    /* Modify source and destination MAC address of Ethernet header. */
-    sr_ethernet_hdr_t* re_ethernet_hdr = (sr_ethernet_hdr_t*) re_packet;
-    memcpy(re_ethernet_hdr->ether_dhost, re_ethernet_hdr->ether_shost, ETHER_ADDR_LEN);
-    memcpy(re_ethernet_hdr->ether_shost, interface->addr, ETHER_ADDR_LEN);
-
-    /* Modify source and destination MAC and IP address of ARP header as well as
-       the operation code (0x0002 for reply). */
-    sr_arp_hdr_t* re_arp_hdr = (sr_arp_hdr_t*) (re_packet + sizeof(sr_ethernet_hdr_t));
-    memcpy(re_arp_hdr->ar_sha, interface->addr, ETHER_ADDR_LEN);
-    memcpy(re_arp_hdr->ar_tha, arp_hdr->ar_sha, ETHER_ADDR_LEN);
-    re_arp_hdr->ar_sip = arp_hdr->ar_tip;
-    re_arp_hdr->ar_tip = arp_hdr->ar_sip;
-    re_arp_hdr->ar_op = htons(arp_op_reply); /* 0x0002 */
+    uint8_t* re_packet = sr_malloc_packet(len, "ARP request");
+    if(!re_packet) return;
+    sr_init_ethernet_hdr(re_packet, packet, interface);
+    sr_init_arp_hdr(re_packet, packet, interface);
 
     /* Send the reply message. */
-    printf(".\n       I have that IP. My MAC is ");
-    printf_addr_eth(re_arp_hdr->ar_sha);
-    printf(".\n       Replying the ARP request... ");
+    printf(".\n       I have that IP. Replying the ARP request... ");
     sr_send_packet(sr, re_packet, headers_len, interface->name);
     printf("Done.\n");
     free(re_packet);
@@ -222,31 +202,12 @@ void sr_handle_ip_icmp_me(struct sr_instance* sr,
     if(icmp_hdr->icmp_type == 8 && icmp_hdr->icmp_code == 0) {
         printf("ICMP Echo Request.\n");
 
-        uint8_t* re_packet;
-        if((re_packet = (uint8_t*) malloc(len)) == NULL) {
-            printf("!----! Failed to malloc while replying ICMP echo request. Dropping.\n");
-            return;
-        }
-
-        /* Almost everything including the payload is the same as the original
-           packet except for something in header. So copy first*/
-        memcpy(re_packet, packet, len);
-
-        sr_ethernet_hdr_t* re_ethernet_hdr = (sr_ethernet_hdr_t*) re_packet;
-        memcpy(re_ethernet_hdr->ether_dhost, re_ethernet_hdr->ether_shost, ETHER_ADDR_LEN);
-        memcpy(re_ethernet_hdr->ether_shost, interface->addr, ETHER_ADDR_LEN);
-
-        sr_ip_hdr_t* re_ip_hdr = (sr_ip_hdr_t*) (re_packet + sizeof(sr_ethernet_hdr_t));
-        re_ip_hdr->ip_ttl = 100;                   /* TODO default 64, sr_solution 100 */
-        re_ip_hdr->ip_dst = re_ip_hdr->ip_src;
-        re_ip_hdr->ip_src = interface->ip;
-        re_ip_hdr->ip_sum = 0;
-        re_ip_hdr->ip_sum = cksum(re_ip_hdr, sizeof(sr_ip_hdr_t));
-
-        sr_icmp_hdr_t* re_icmp_hdr = (sr_icmp_hdr_t*)(re_packet + icmp_offset);
-        re_icmp_hdr->icmp_type = re_icmp_hdr->icmp_code = 0;
-        re_icmp_hdr->icmp_sum = 0;
-        re_icmp_hdr->icmp_sum = cksum(re_icmp_hdr, sizeof(sr_icmp_hdr_t));
+        /* Create reply packet and initialize headers. */
+        uint8_t* re_packet = sr_malloc_packet(len, "ICMP echo request for me");
+        if(!re_packet) return;
+        sr_init_ethernet_hdr(re_packet, packet, interface);
+        sr_init_ip_hdr(re_packet, packet, interface, ip_protocol_icmp);
+        sr_init_icmp_hdr(re_packet, packet, 0, 0);
 
         printf("       Replying the ICMP echo request... ");
         sr_send_packet(sr, re_packet, len, interface->name);
@@ -262,12 +223,13 @@ void sr_handle_ip_tcpudp_me(struct sr_instance* sr,
                             unsigned int len,
                             struct sr_if* interface)
 {
-    int headers_len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_icmp_hdr_t);
-    uint8_t* re_packet;
-    if((re_packet = (uint8_t*) malloc(headers_len)) == NULL) {
-        printf("!----! Failed to malloc while replying ARP request. Dropping.\n");
-        return;
-    }
+    int headers_len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) +
+                      sizeof(sr_icmp_t3_hdr_t);
+    uint8_t* re_packet = sr_malloc_packet(headers_len, "TCP/UDP for me");
+    if(!re_packet) return;
+    sr_init_ethernet_hdr(re_packet, packet, interface);
+    sr_init_ip_hdr(re_packet, packet, interface, ip_protocol_icmp);
+    sr_init_icmp_hdr(re_packet, packet, 3, 3);
 }
 
 void sr_handle_ip_any_others(struct sr_instance* sr,
