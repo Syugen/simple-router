@@ -62,6 +62,7 @@ void sr_init_arp_hdr(uint8_t* re_packet,
 /* Initialize the IP header of re_packet.
  * The destionation of re_packet is set to be the source of packet;
  * the source of re_packet is set to be the address in the interface;
+ * the length is set to be len passed in, the length of the packet;
  * and the ip protocol is set to be the given ip_protocol. */
 void sr_init_ip_hdr(uint8_t* re_packet,
                     uint8_t* packet,
@@ -72,7 +73,7 @@ void sr_init_ip_hdr(uint8_t* re_packet,
     sr_ip_hdr_t* re_ip_hdr = (sr_ip_hdr_t*) (re_packet + sizeof(sr_ethernet_hdr_t));
     sr_ip_hdr_t* ip_hdr = (sr_ip_hdr_t*) (packet + sizeof(sr_ethernet_hdr_t));
     memcpy(re_ip_hdr, ip_hdr, sizeof(sr_ip_hdr_t));
-    re_ip_hdr->ip_len = htonl(len - sizeof(sr_ethernet_hdr_t));
+    re_ip_hdr->ip_len = htons(len);
     re_ip_hdr->ip_ttl = 100;                   /* TODO default 64, sr_solution 100 */
     re_ip_hdr->ip_p = ip_protocol;
     re_ip_hdr->ip_dst = ip_hdr->ip_src;
@@ -105,8 +106,8 @@ void sr_init_icmp_hdr(uint8_t* re_packet, uint8_t * packet,
         sr_ip_hdr_t* ip_hdr = (sr_ip_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
         memcpy(re_icmp_t3_hdr->data, ip_hdr, ICMP_DATA_SIZE);
         sr_ip_hdr_t* ip_in_icmp_hdr = (sr_ip_hdr_t*)(re_icmp_t3_hdr->data);
-        ip_in_icmp_hdr->ip_len = htonl(ICMP_DATA_SIZE);
-        re_icmp_t3_hdr->next_mtu = 1500; /* TODO Should I set it to 1500? */
+        ip_in_icmp_hdr->ip_len = htons(ICMP_DATA_SIZE);
+        re_icmp_t3_hdr->unused = re_icmp_t3_hdr->next_mtu = 0;
         re_icmp_t3_hdr->icmp_sum = 0;
         re_icmp_t3_hdr->icmp_sum = cksum(re_icmp_t3_hdr, sizeof(sr_icmp_t3_hdr_t));
     } else if(type == 11) {
