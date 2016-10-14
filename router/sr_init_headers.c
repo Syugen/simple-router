@@ -65,11 +65,14 @@ void sr_init_arp_hdr(uint8_t* re_packet,
  * and the ip protocol is set to be the given ip_protocol. */
 void sr_init_ip_hdr(uint8_t* re_packet,
                     uint8_t* packet,
+                    unsigned int len,
                     struct sr_if* interface,
                     unsigned int ip_protocol)
 {
     sr_ip_hdr_t* re_ip_hdr = (sr_ip_hdr_t*) (re_packet + sizeof(sr_ethernet_hdr_t));
     sr_ip_hdr_t* ip_hdr = (sr_ip_hdr_t*) (packet + sizeof(sr_ethernet_hdr_t));
+    memcpy(re_ip_hdr, ip_hdr, sizeof(sr_ip_hdr_t));
+    re_ip_hdr->ip_len = htonl(len - sizeof(sr_ethernet_hdr_t));
     re_ip_hdr->ip_ttl = 100;                   /* TODO default 64, sr_solution 100 */
     re_ip_hdr->ip_p = ip_protocol;
     re_ip_hdr->ip_dst = ip_hdr->ip_src;
@@ -86,11 +89,14 @@ void sr_init_icmp_hdr(uint8_t* re_packet, uint8_t * packet,
 {
     int icmp_offset = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t);
     sr_icmp_hdr_t* re_icmp_hdr = (sr_icmp_hdr_t*)(re_packet + icmp_offset);
+    re_icmp_hdr->icmp_type = type;
     if(type == 0) {
         /* Not only copy header, but also the payload. */
-        sr_icmp_hdr_t* icmp_hdr = (sr_icmp_hdr_t*)(re_packet + icmp_offset);
+        sr_icmp_hdr_t* icmp_hdr = (sr_icmp_hdr_t*)(packet + icmp_offset);
         memcpy(re_icmp_hdr, icmp_hdr, code_or_len);
         re_icmp_hdr->icmp_code = 0;
+        re_icmp_hdr->icmp_sum = 0;
+        re_icmp_hdr->icmp_sum = cksum(re_icmp_hdr, sizeof(sr_icmp_hdr_t));
     } else if(type == 3) {
         re_icmp_hdr->icmp_code = code_or_len;
 
@@ -98,16 +104,15 @@ void sr_init_icmp_hdr(uint8_t* re_packet, uint8_t * packet,
         sr_icmp_t3_hdr_t* re_icmp_t3_hdr = (sr_icmp_t3_hdr_t*)re_icmp_hdr;
         sr_ip_hdr_t* ip_hdr = (sr_ip_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
         memcpy(re_icmp_t3_hdr->data, ip_hdr, ICMP_DATA_SIZE);
+        sr_ip_hdr_t* ip_in_icmp_hdr = (sr_ip_hdr_t*)(re_icmp_t3_hdr->data);
+        ip_in_icmp_hdr->ip_len = htonl(ICMP_DATA_SIZE);
         re_icmp_t3_hdr->next_mtu = 1500; /* TODO Should I set it to 1500? */
         re_icmp_t3_hdr->icmp_sum = 0;
-        re_icmp_t3_hdr->icmp_sum = cksum(re_icmp_hdr, sizeof(sr_icmp_hdr_t));
+        re_icmp_t3_hdr->icmp_sum = cksum(re_icmp_t3_hdr, sizeof(sr_icmp_t3_hdr_t));
     } else if(type == 11) {
         /* TODO to be implemented */
     } else {
         printf("       Cannot create other types of ICMP packets.\n");
         return;
     }
-    re_icmp_hdr->icmp_type = type;
-    re_icmp_hdr->icmp_sum = 0;
-    re_icmp_hdr->icmp_sum = cksum(re_icmp_hdr, sizeof(sr_icmp_hdr_t));
 }

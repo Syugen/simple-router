@@ -79,7 +79,7 @@ void sr_handle_ip_any_others(struct sr_instance* , uint8_t * , unsigned int , st
 uint8_t* sr_malloc_packet(unsigned int , char* );
 void sr_init_ethernet_hdr(uint8_t* , uint8_t * , struct sr_if* );
 void sr_init_arp_hdr(uint8_t* , uint8_t * , struct sr_if* );
-void sr_init_ip_hdr(uint8_t* , uint8_t * , struct sr_if* , unsigned int );
+void sr_init_ip_hdr(uint8_t* , uint8_t * , unsigned int , struct sr_if* , unsigned int );
 void sr_init_icmp_hdr(uint8_t* , uint8_t * , unsigned int , unsigned int );
 
 /* -- sr_if.c -- */

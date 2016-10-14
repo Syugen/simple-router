@@ -205,7 +205,7 @@ void sr_handle_ip_icmp_me(struct sr_instance* sr,
         uint8_t* re_packet = sr_malloc_packet(len, "ICMP echo request for me");
         if(!re_packet) return;
         sr_init_ethernet_hdr(re_packet, packet, interface);
-        sr_init_ip_hdr(re_packet, packet, interface, ip_protocol_icmp);
+        sr_init_ip_hdr(re_packet, packet, len, interface, ip_protocol_icmp);
         sr_init_icmp_hdr(re_packet, packet, 0, len - icmp_offset);
 
         printf("       Sending ICMP echo reply... ");
@@ -222,12 +222,14 @@ void sr_handle_ip_tcpudp_me(struct sr_instance* sr,
                             unsigned int len,
                             struct sr_if* interface)
 {
+    printf("TCP/UDP.\n");
+
     int headers_len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) +
                       sizeof(sr_icmp_t3_hdr_t);
     uint8_t* re_packet = sr_malloc_packet(headers_len, "TCP/UDP for me");
     if(!re_packet) return;
     sr_init_ethernet_hdr(re_packet, packet, interface);
-    sr_init_ip_hdr(re_packet, packet, interface, ip_protocol_icmp);
+    sr_init_ip_hdr(re_packet, packet, len, interface, ip_protocol_icmp);
     sr_init_icmp_hdr(re_packet, packet, 3, 3);
 
     printf("       Sending ICMP port unreachable... ");
