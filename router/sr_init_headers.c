@@ -5,6 +5,7 @@
 
 #include "sr_router.h"
 #include "sr_protocol.h"
+#include "sr_utils.h"
 
 /* Allocate space for a packet to reply */
 uint8_t* sr_malloc_packet(unsigned int len, char* message)
@@ -67,41 +68,39 @@ void sr_init_ip_hdr(uint8_t* re_packet,
     sr_ip_hdr_t* ip_hdr = (sr_ip_hdr_t*) (packet + sizeof(sr_ethernet_hdr_t));
     re_ip_hdr->ip_ttl = 100;                   /* TODO default 64, sr_solution 100 */
     re_ip_hdr->ip_p = ip_protocol;
-    re_ip_hdr->ip_dst = re_ip_hdr->ip_src;
+    re_ip_hdr->ip_dst = ip_hdr->ip_src;
     re_ip_hdr->ip_src = interface->ip;
     re_ip_hdr->ip_sum = 0;
     re_ip_hdr->ip_sum = cksum(re_ip_hdr, sizeof(sr_ip_hdr_t));
 }
+
 void sr_init_icmp_hdr(uint8_t* re_packet, uint8_t * packet,
-                      unsigned int type, unsigned int code)
+                      unsigned int type, unsigned int code_or_len)
 {
     int icmp_offset = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t);
-    switch(type) {
-        case 0:
-            /* Not only copy header, but also the payload. */
-            sr_icmp_hdr_t* re_icmp_hdr = (sr_icmp_hdr_t*)(re_packet + icmp_offset);
-            sr_icmp_hdr_t* icmp_hdr = (sr_icmp_hdr_t*)(re_packet + icmp_offset);
-            memcpy(re_icmp_hdr, ip_hdr, ICMP_DATA_SIZE);
-            break;
-        case 3:
-            /* Copy the header of IP packet and first 8 bytes. */
-            sr_icmp_t3_hdr_t* re_icmp_hdr = (sr_icmp_t3_hdr_t*)(re_packet + icmp_offset);
-            sr_ip_hdr_t* ip_hdr = (sr_ip_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
-            memcpy(re_icmp_hdr->data, ip_hdr, ICMP_DATA_SIZE);
-            re_icmp_hdr->icmp_type = 3;
-            re_icmp_hdr->next_mtu = 1500; /* TODO Should I set it to 1500? */
-            re_icmp_hdr->icmp_sum = 0;
-            re_icmp_hdr->icmp_sum = cksum(re_icmp_hdr, sizeof(sr_icmp_hdr_t));
-            break;
-        case 11:
-            /* TODO to be implemented */
-            break;
-        default:
-            printf("       Cannot create other types of ICMP packets.\n");
-            return;
+    sr_icmp_hdr_t* re_icmp_hdr = (sr_icmp_hdr_t*)(re_packet + icmp_offset);
+    if(type == 0) {
+        /* Not only copy header, but also the payload. */
+        sr_icmp_hdr_t* icmp_hdr = (sr_icmp_hdr_t*)(re_packet + icmp_offset);
+        memcpy(re_icmp_hdr, icmp_hdr, code_or_len);
+        re_icmp_hdr->icmp_code = 0;
+    } else if(type == 3) {
+        re_icmp_hdr->icmp_code = code_or_len;
+
+        /* Copy the header of IP packet and first 8 bytes. */
+        sr_icmp_t3_hdr_t* re_icmp_t3_hdr = (sr_icmp_t3_hdr_t*)re_icmp_hdr;
+        sr_ip_hdr_t* ip_hdr = (sr_ip_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
+        memcpy(re_icmp_t3_hdr->data, ip_hdr, ICMP_DATA_SIZE);
+        re_icmp_t3_hdr->next_mtu = 1500; /* TODO Should I set it to 1500? */
+        re_icmp_t3_hdr->icmp_sum = 0;
+        re_icmp_t3_hdr->icmp_sum = cksum(re_icmp_hdr, sizeof(sr_icmp_hdr_t));
+    } else if(type == 11) {
+        /* TODO to be implemented */
+    } else {
+        printf("       Cannot create other types of ICMP packets.\n");
+        return;
     }
     re_icmp_hdr->icmp_type = type;
-    re_icmp_hdr->icmp_code = code;
     re_icmp_hdr->icmp_sum = 0;
     re_icmp_hdr->icmp_sum = cksum(re_icmp_hdr, sizeof(sr_icmp_hdr_t));
 }

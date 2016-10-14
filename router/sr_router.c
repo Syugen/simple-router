@@ -207,7 +207,7 @@ void sr_handle_ip_icmp_me(struct sr_instance* sr,
         if(!re_packet) return;
         sr_init_ethernet_hdr(re_packet, packet, interface);
         sr_init_ip_hdr(re_packet, packet, interface, ip_protocol_icmp);
-        sr_init_icmp_hdr(re_packet, packet, 0, 0);
+        sr_init_icmp_hdr(re_packet, packet, 0, len - icmp_offset);
 
         printf("       Replying the ICMP echo request... ");
         sr_send_packet(sr, re_packet, len, interface->name);
