@@ -18,7 +18,7 @@ uint8_t* sr_malloc_packet(unsigned int len, char* message)
     return re_packet;
 }
 
-/* Initialize the ethernet header of re_packet.
+/* Initialize the ethernet header of re_packet. Use for REPLY ONLY.
  * The destionation of re_packet is set to be the source of packet.
  * The source of re_packet is set to be the address in the interface.
  * The type REMAINS UNCHANGED, that is, if packet is ARP, re_packet is also ARP.
@@ -132,7 +132,9 @@ void sr_create_icmp_t3_template(struct sr_instance* sr,
     sr_init_ip_hdr(re_packet, packet, ip_len, interface, ip_protocol_icmp);
     sr_init_icmp_hdr(re_packet, packet, type, code);
 
-    if(type == 3 && code == 3)
+    if(type == 3 && code == 0)
+        printf("       Sending ICMP network unreachable... ");
+    else if(type == 3 && code == 3)
         printf("       Sending ICMP port unreachable... ");
     else if(type == 11)
         printf("       Sending ICMP time-to-live exceed... ");

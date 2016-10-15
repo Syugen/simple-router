@@ -184,13 +184,8 @@ void sr_handle_ip_packet(struct sr_instance* sr,
     } else {  /* Not for me */
         printf("ICMP/TCP/UDP/... for ");
         printf_addr_ip_int(htonl(ip_hdr->ip_dst));
-        if(ip_hdr->ip_ttl - 1 == 0) {
-            printf(". Time for you to die.\n");
-            sr_create_icmp_t3_template(sr, packet, interface, 11, 0);
-        } else {
-            printf(". Forwarding... (Not implemented)\n");
-            sr_handle_ip_others(sr, packet, len, interface);
-        }
+        printf(" - ");
+        sr_handle_ip_others(sr, packet, len, interface);
     }
 }
 
@@ -202,7 +197,6 @@ void sr_handle_ip_icmp_me(struct sr_instance* sr,
     /* Only handle the ICMP echo request (type == 8, code == 0). */
     int icmp_offset = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t);
     sr_icmp_hdr_t* icmp_hdr = (sr_icmp_hdr_t*)(packet + icmp_offset);
-printf("%d %d\n", icmp_hdr->icmp_type, icmp_hdr->icmp_code);
     if(icmp_hdr->icmp_type == 8 && icmp_hdr->icmp_code == 0) {
         printf("Echo Request.\n");
 
@@ -230,6 +224,42 @@ void sr_handle_ip_others(struct sr_instance* sr,
                          struct sr_if* interface)
 {
     sr_ip_hdr_t* ip_hdr = (sr_ip_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
+
+    /* TTL == 0. Life end. */
+    if(ip_hdr->ip_ttl - 1 == 0) {
+        printf(" TTL == 0. You are a dead man.\n");
+        sr_create_icmp_t3_template(sr, packet, interface, 11, 0);
+        return;
+    }
+
+    /* Life not end, but destination not in routing table. */
     struct sr_if* dest_interface = sr_longest_prefix_match(sr, ip_hdr->ip_dst);
-    dest_interface = NULL;
+    if(!dest_interface) {
+        printf(" cannot find destination on routing table.\n");
+        sr_create_icmp_t3_template(sr, packet, interface, 3, 0);
+        return;
+    }
+
+    /* Destination found. Find it in ARP cache. */
+    struct sr_arpentry *arp_entry;
+    if(NULL == (arp_entry = sr_arpcache_lookup(&(sr->cache), ip_hdr->ip_dst))) {
+        printf(" no cache found.\n");
+        struct sr_arpreq *arp_req;
+        arp_req = sr_arpcache_queuereq(&(sr->cache), ip_hdr->ip_dst, packet,
+                                       len, dest_interface->name);
+        sr_arpcache_handle_arpreq(sr, arp_req);
+    } else {
+        uint8_t* re_packet = sr_malloc_packet(len, "IP forward");
+        if(!re_packet) return;
+        memcpy(re_packet, packet, sizeof(sr_ethernet_hdr_t));
+        sr_ethernet_hdr_t *re_eth_hdr = (sr_ethernet_hdr_t *) packet;
+        memcpy(re_eth_hdr->ether_dhost, arp_entry->mac, ETHER_ADDR_LEN);
+        memcpy(re_eth_hdr->ether_shost, dest_interface->addr, ETHER_ADDR_LEN);
+        /*TODO Need to do this???
+        ip_hdr->ip_sum = 0;
+        ip_hdr->ip_sum = cksum((const void *)ip_hdr, sizeof(sr_ip_hdr_t));*/
+        printf("       Sending IP packet to next hop... ");
+        sr_send_packet(sr, packet, len, dest_interface->name);
+        free(arp_entry);
+    }
 }

@@ -11,7 +11,7 @@
 #include "sr_if.h"
 #include "sr_protocol.h"
 
-void handle_arpreq(struct sr_instance *sr, struct sr_arpreq *req) {
+void sr_arpcache_handle_arpreq(struct sr_instance *sr, struct sr_arpreq *req) {
     /* "now" means time(0) */
 /*    if (difftime(time(0), req->sent) > 1.0) {
         if (req->times_sent >= 5) {

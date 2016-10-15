@@ -183,6 +183,12 @@ void sr_print_routing_entry(struct sr_rt* entry)
 struct sr_if* sr_longest_prefix_match(struct sr_instance* sr,
                                       uint32_t ip_dest)
 {
-    sr_print_routing_table(sr);
+    struct sr_rt* rt_walker = sr->routing_table;
+    while(rt_walker) {
+        if(rt_walker->dest.s_addr == (rt_walker->mask.s_addr & ip_dest)) {
+            return sr_get_interface(sr, rt_walker->interface);
+        }
+        rt_walker = rt_walker->next;
+    }
     return NULL;
 }
