@@ -119,7 +119,7 @@ void sr_handle_arp_packet(struct sr_instance* sr,
             sr_handle_arp_reply(sr, arp_hdr, interface);
             break;
         default:
-            printf("Unknown ARP type. Dropping.\n");
+            printf("Not ARP Request/Reply (type unchecked). Dropping.\n");
     }
 }
 
@@ -142,7 +142,7 @@ void sr_handle_arp_request(struct sr_instance* sr,
 
     /* Create reply packet and initialize headers. */
     int headers_len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_arp_hdr_t);
-    uint8_t* re_packet = sr_malloc_packet(len, "ARP request");
+    uint8_t* re_packet = sr_malloc_packet(len, "ARP reply");
     if(!re_packet) return;
     sr_init_ethernet_hdr(re_packet, packet, interface);
     sr_init_arp_hdr(re_packet, packet, interface);
@@ -175,18 +175,24 @@ void sr_handle_ip_packet(struct sr_instance* sr,
                 break;
             case ip_protocol_tcp: /* Added in sr_protocol.h by our group */
             case ip_protocol_udp: /* Added in sr_protocol.h by our group */
-                printf("TCP/UDP for me - ");
-                sr_handle_ip_tcpudp_me(sr, packet, len, interface);
+                printf("TCP/UDP for me.\n");
+                sr_create_icmp_t3_template(sr, packet, interface, 3, 3);
                 break;
             default:
-                printf("The protocol number of this IP packet is 0x%04d. ", ip_hdr->ip_p);
-                printf("Cannot handle such packet. Dropping.\n");
+                printf("Not ICMP/TCP/UDP (type unchecked). Dropping.\n");
         }
     } else {  /* Not for me */
         printf("ICMP/TCP/UDP/... for ");
         printf_addr_ip_int(htonl(ip_hdr->ip_dst));
-        printf(". Forwarding... (Not implemented)\n");
-        sr_handle_ip_any_others(sr, packet, len, interface);
+        printf("\nBefore %d\n", ip_hdr->ip_ttl);
+        if(ip_hdr->ip_ttl - 1 == 0) {
+            printf(". Time for you to die.\n");
+            sr_create_icmp_t3_template(sr, packet, interface, 11, 0);
+        } else {
+            printf("After  %d\n", ip_hdr->ip_ttl);
+            printf(". Forwarding... (Not implemented)\n");
+            sr_handle_ip_others(sr, packet, len, interface);
+        }
     }
 }
 
@@ -199,10 +205,10 @@ void sr_handle_ip_icmp_me(struct sr_instance* sr,
     int icmp_offset = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t);
     sr_icmp_hdr_t* icmp_hdr = (sr_icmp_hdr_t*)(packet + icmp_offset);
     if(icmp_hdr->icmp_type == 8 && icmp_hdr->icmp_code == 0) {
-        printf("ICMP Echo Request.\n");
+        printf("Echo Request.\n");
 
         /* Create reply packet and initialize headers. */
-        uint8_t* re_packet = sr_malloc_packet(len, "ICMP echo request for me");
+        uint8_t* re_packet = sr_malloc_packet(len, "ICMP echo reply");
         if(!re_packet) return;
         int ip_len = len - sizeof(sr_ethernet_hdr_t);
         sr_init_ethernet_hdr(re_packet, packet, interface);
@@ -214,37 +220,17 @@ void sr_handle_ip_icmp_me(struct sr_instance* sr,
         printf("Done.\n");
         free(re_packet);
     } else {
-        printf("\n       I can only handle ICMP echo request. Dropping.\n");
+        printf("Not Echo Request (type unchecked).\n");
+        printf("       I can only handle ICMP echo request. Dropping.\n");
     }
 }
 
-void sr_handle_ip_tcpudp_me(struct sr_instance* sr,
-                            uint8_t* packet,
-                            unsigned int len,
-                            struct sr_if* interface)
+void sr_handle_ip_others(struct sr_instance* sr,
+                         uint8_t* packet,
+                         unsigned int len,
+                         struct sr_if* interface)
 {
-    printf("TCP/UDP.\n");
-
-    int headers_len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) +
-                      sizeof(sr_icmp_t3_hdr_t);
-    uint8_t* re_packet = sr_malloc_packet(headers_len, "TCP/UDP for me");
-    if(!re_packet) return;
-    int ip_len = sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_t3_hdr_t);
-    sr_init_ethernet_hdr(re_packet, packet, interface);
-    sr_init_ip_hdr(re_packet, packet, ip_len, interface, ip_protocol_icmp);
-    sr_init_icmp_hdr(re_packet, packet, 3, 3);
-
-    printf("       Sending ICMP port unreachable... ");
-    sr_send_packet(sr, re_packet, headers_len, interface->name);
-    printf("Done.\n");
-    free(re_packet);
-}
-
-void sr_handle_ip_any_others(struct sr_instance* sr,
-                             uint8_t* packet,
-                             unsigned int len,
-                             struct sr_if* interface)
-{
-    /*TODO*/
-    printf("       Told you. Not implemented yet\n");
+    sr_ip_hdr_t* ip_hdr = (sr_ip_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
+    struct sr_if* dest_interface = sr_longest_prefix_match(sr, ip_hdr->ip_dst);
+    dest_interface = NULL;
 }

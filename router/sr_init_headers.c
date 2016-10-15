@@ -12,7 +12,7 @@ uint8_t* sr_malloc_packet(unsigned int len, char* message)
 {
     uint8_t* re_packet;
     if((re_packet = (uint8_t*) malloc(len)) == NULL) {
-        printf("!----! Failed to malloc while replying %s. Dropping.\n", message);
+        printf("!----! Failed to malloc while sending %s packet. Dropping.\n", message);
         return NULL;
     }
     return re_packet;
@@ -98,22 +98,45 @@ void sr_init_icmp_hdr(uint8_t* re_packet, uint8_t * packet,
         re_icmp_hdr->icmp_code = 0;
         re_icmp_hdr->icmp_sum = 0;
         re_icmp_hdr->icmp_sum = cksum(re_icmp_hdr, sizeof(sr_icmp_hdr_t));
-    } else if(type == 3) {
-        re_icmp_hdr->icmp_code = code_or_len;
-
-        /* Copy the header of IP packet and first 8 bytes. */
+        return;
+    } else if(type == 3 || type == 11) {
         sr_icmp_t3_hdr_t* re_icmp_t3_hdr = (sr_icmp_t3_hdr_t*)re_icmp_hdr;
         sr_ip_hdr_t* ip_hdr = (sr_ip_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
-        memcpy(re_icmp_t3_hdr->data, ip_hdr, ICMP_DATA_SIZE);
         sr_ip_hdr_t* ip_in_icmp_hdr = (sr_ip_hdr_t*)(re_icmp_t3_hdr->data);
+
+        /* Copy the header of IP packet and first 8 bytes. */
+        memcpy(re_icmp_t3_hdr->data, ip_hdr, ICMP_DATA_SIZE);
         ip_in_icmp_hdr->ip_len = htons(ICMP_DATA_SIZE);
+        re_icmp_t3_hdr->icmp_code = code_or_len;
         re_icmp_t3_hdr->unused = re_icmp_t3_hdr->next_mtu = 0;
         re_icmp_t3_hdr->icmp_sum = 0;
         re_icmp_t3_hdr->icmp_sum = cksum(re_icmp_t3_hdr, sizeof(sr_icmp_t3_hdr_t));
-    } else if(type == 11) {
-        /* TODO to be implemented */
     } else {
         printf("       Cannot create other types of ICMP packets.\n");
         return;
     }
+}
+
+void sr_create_icmp_t3_template(struct sr_instance* sr,
+                                uint8_t * packet,
+                                struct sr_if* interface,
+                                unsigned int type,
+                                unsigned int code)
+{
+    int headers_len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) +
+                      sizeof(sr_icmp_t3_hdr_t);
+    uint8_t* re_packet = sr_malloc_packet(headers_len, "ICMP type 3/11");
+    if(!re_packet) return;
+    int ip_len = sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_t3_hdr_t);
+    sr_init_ethernet_hdr(re_packet, packet, interface);
+    sr_init_ip_hdr(re_packet, packet, ip_len, interface, ip_protocol_icmp);
+    sr_init_icmp_hdr(re_packet, packet, type, code);
+
+    if(type == 3 && code == 3)
+        printf("       Sending ICMP port unreachable... ");
+    else if(type == 11)
+        printf("       Sending ICMP time-to-live exceed... ");
+    sr_send_packet(sr, re_packet, headers_len, interface->name);
+    printf("Done.\n");
+    free(re_packet);
 }
