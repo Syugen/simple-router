@@ -184,12 +184,10 @@ void sr_handle_ip_packet(struct sr_instance* sr,
     } else {  /* Not for me */
         printf("ICMP/TCP/UDP/... for ");
         printf_addr_ip_int(htonl(ip_hdr->ip_dst));
-        printf("\nBefore %d\n", ip_hdr->ip_ttl);
         if(ip_hdr->ip_ttl - 1 == 0) {
             printf(". Time for you to die.\n");
             sr_create_icmp_t3_template(sr, packet, interface, 11, 0);
         } else {
-            printf("After  %d\n", ip_hdr->ip_ttl);
             printf(". Forwarding... (Not implemented)\n");
             sr_handle_ip_others(sr, packet, len, interface);
         }
@@ -204,6 +202,7 @@ void sr_handle_ip_icmp_me(struct sr_instance* sr,
     /* Only handle the ICMP echo request (type == 8, code == 0). */
     int icmp_offset = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t);
     sr_icmp_hdr_t* icmp_hdr = (sr_icmp_hdr_t*)(packet + icmp_offset);
+printf("%d %d\n", icmp_hdr->icmp_type, icmp_hdr->icmp_code);
     if(icmp_hdr->icmp_type == 8 && icmp_hdr->icmp_code == 0) {
         printf("Echo Request.\n");
 

@@ -90,12 +90,11 @@ void sr_init_icmp_hdr(uint8_t* re_packet, uint8_t * packet,
 {
     int icmp_offset = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t);
     sr_icmp_hdr_t* re_icmp_hdr = (sr_icmp_hdr_t*)(re_packet + icmp_offset);
-    re_icmp_hdr->icmp_type = type;
     if(type == 0) {
         /* Not only copy header, but also the payload. */
         sr_icmp_hdr_t* icmp_hdr = (sr_icmp_hdr_t*)(packet + icmp_offset);
         memcpy(re_icmp_hdr, icmp_hdr, code_or_len);
-        re_icmp_hdr->icmp_code = 0;
+        re_icmp_hdr->icmp_type = re_icmp_hdr->icmp_code = 0;
         re_icmp_hdr->icmp_sum = 0;
         re_icmp_hdr->icmp_sum = cksum(re_icmp_hdr, sizeof(sr_icmp_hdr_t));
         return;
@@ -107,6 +106,7 @@ void sr_init_icmp_hdr(uint8_t* re_packet, uint8_t * packet,
         /* Copy the header of IP packet and first 8 bytes. */
         memcpy(re_icmp_t3_hdr->data, ip_hdr, ICMP_DATA_SIZE);
         ip_in_icmp_hdr->ip_len = htons(ICMP_DATA_SIZE);
+        re_icmp_t3_hdr->icmp_type = type;
         re_icmp_t3_hdr->icmp_code = code_or_len;
         re_icmp_t3_hdr->unused = re_icmp_t3_hdr->next_mtu = 0;
         re_icmp_t3_hdr->icmp_sum = 0;

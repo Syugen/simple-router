@@ -194,7 +194,7 @@ void sr_print_if(struct sr_if* iface)
     Debug("\tinet addr %s\n",inet_ntoa(ip_addr));
 } /* -- sr_print_if -- */
 
-/* Added by Syugen. Return 1 iff ip is found in the iface list. 
+/* Added by our group. Return 1 iff ip is found in the iface list. 
  * ip must be in human readable order. */
 int sr_if_contains_ip(struct sr_if* iface, uint32_t ip)
 {
