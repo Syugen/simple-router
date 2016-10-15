@@ -1,7 +1,7 @@
 /*-----------------------------------------------------------------------------
  * file:  sr_if.h
- * date:  Sun Oct 06 14:13:13 PDT 2002 
- * Contact: casado@stanford.edu 
+ * date:  Sun Oct 06 14:13:13 PDT 2002
+ * Contact: casado@stanford.edu
  *
  * Description:
  *
@@ -50,6 +50,6 @@ void sr_set_ether_addr(struct sr_instance*, const unsigned char*);
 void sr_set_ether_ip(struct sr_instance*, uint32_t ip_nbo);
 void sr_print_if_list(struct sr_instance*);
 void sr_print_if(struct sr_if*);
-int sr_if_contains_ip(struct sr_if*, uint32_t); /* Added by Syugen */
+int sr_if_contains_ip(struct sr_if*, uint32_t); /* Added by our group */
 
 #endif /* --  sr_INTERFACE_H -- */

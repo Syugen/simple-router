@@ -134,6 +134,8 @@ void sr_create_icmp_t3_template(struct sr_instance* sr,
 
     if(type == 3 && code == 0)
         printf("       Sending ICMP network unreachable... ");
+    else if(type == 3 && code == 1)
+            printf("       Sending ICMP host unreachable... ");
     else if(type == 3 && code == 3)
         printf("       Sending ICMP port unreachable... ");
     else if(type == 11)

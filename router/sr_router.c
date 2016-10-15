@@ -227,7 +227,7 @@ void sr_handle_ip_others(struct sr_instance* sr,
 
     /* TTL == 0. Life end. */
     if(ip_hdr->ip_ttl - 1 == 0) {
-        printf(" TTL == 0. You are a dead man.\n");
+        printf("TTL == 0. You are a dead man.\n");
         sr_create_icmp_t3_template(sr, packet, interface, 11, 0);
         return;
     }
@@ -235,15 +235,16 @@ void sr_handle_ip_others(struct sr_instance* sr,
     /* Life not end, but destination not in routing table. */
     struct sr_if* dest_interface = sr_longest_prefix_match(sr, ip_hdr->ip_dst);
     if(!dest_interface) {
-        printf(" cannot find destination on routing table.\n");
+        printf("Cannot find destination on routing table.\n");
         sr_create_icmp_t3_template(sr, packet, interface, 3, 0);
         return;
     }
 
-    /* Destination found. Find it in ARP cache. */
+    /* Destination found. Find it in ARP cache.
+     * This is following the instruction in sr_arpcache.h line 11-19. */
     struct sr_arpentry *arp_entry;
     if(NULL == (arp_entry = sr_arpcache_lookup(&(sr->cache), ip_hdr->ip_dst))) {
-        printf(" no cache found.\n");
+        printf("No cache found.\n");
         struct sr_arpreq *arp_req;
         arp_req = sr_arpcache_queuereq(&(sr->cache), ip_hdr->ip_dst, packet,
                                        len, dest_interface->name);

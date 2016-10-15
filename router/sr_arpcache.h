@@ -107,7 +107,7 @@ struct sr_arpcache {
 };
 
 /* Added by our group. */
-void sr_arpcache_handle_arpreq(struct sr_instance *sr, struct sr_arpreq *req);
+void sr_arpcache_handle_arpreq(struct sr_instance *, struct sr_arpreq *, struct sr_if *);
 
 /* Checks if an IP->MAC mapping is in the cache. IP is in network byte order.
    You must free the returned structure if it is not NULL. */

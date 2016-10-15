@@ -11,22 +11,63 @@
 #include "sr_if.h"
 #include "sr_protocol.h"
 
-void sr_arpcache_handle_arpreq(struct sr_instance *sr, struct sr_arpreq *req) {
-    /* "now" means time(0) */
-/*    if (difftime(time(0), req->sent) > 1.0) {
+void sr_arpcache_handle_arpreq(struct sr_instance *sr,
+                               struct sr_arpreq *req,
+                               struct sr_if *interface) {
+    pthread_mutex_lock(&sr->cache.lock);
+
+    printf("Managing ARP request.\n");
+    if (difftime(time(NULL), req->sent) > 1.0) {
         if (req->times_sent >= 5) {
+            printf("Cannot find this host.\n");
+            /* Get the link list of all packets related to this request and
+             * send ICMP host unreachable for all of them. */
             struct sr_packet *packet = req->packets;
             while (packet) {
-                // TODO send icmp host unreachable to source addr of all pkts waiting on this request
+                sr_create_icmp_t3_template(sr, packet, interface, 3, 1);
+                packet = packet->next;
             }
             sr_arpreq_destroy(sr->cache, req);
         }
         else {
-            // TODO Send arp request
-            req->sent = time(0);
+            printf("Sending ARP request.\n");
+            req->sent = time(NULL);
             req->times_sent++;
+
+            /* Broadcast the ARP request. Naming the packet "re_packet" for
+             * consistence, but it is actually not replying.
+             * Since this is the only place where ARP request would be sent,
+             * I'm not going to put the code below into a new function
+             * (like I did for sr_create_icmp_t3_template). */
+            int headers_len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_arp_hdr_t);
+            uint8_t* re_packet = sr_malloc_packet(len, "ARP request");
+            if(!re_packet) return;
+
+            /* Set ethernet header. */
+            sr_ethernet_hdr_t *eth_hdr = (sr_ethernet_hdr_t *) packet;
+            sr_arp_hdr_t *arp_hdr = (sr_arp_hdr_t *) (packet + sizeof(sr_ethernet_hdr_t));
+            memset(eth_hdr->ether_dhost, 255, ETHER_ADDR_LEN); /* Broadcast */
+            memcpy(eth_hdr->ether_shost, interface->addr, ETHER_ADDR_LEN);
+            eth_hdr->ether_type = htons(ethertype_arp);
+
+            /* Set ARP header. */
+            arp_hdr->ar_hrd = htons(arp_hrd_ethernet);
+            arp_hdr->ar_pro = htons(ethertype_ip);
+            arp_hdr->ar_hln = ETHER_ADDR_LEN;
+            arp_hdr->ar_pln = sizeof(uint32_t);
+            arp_hdr->ar_op = htons(arp_op_request);
+            arp_hdr->ar_sip = interface->ip;
+            arp_hdr->ar_tip = req->ip;
+            memcpy(arp_hdr->ar_sha, interface->addr, ETHER_ADDR_LEN);
+            memset(arp_hdr->ar_tha, 255, ETHER_ADDR_LEN);
+
+            printf("       Broadcasting ARP request... ");
+            sr_send_packet(sr, re_packet, headers_len, interface->name);
+            printf("Done.\n");
+            free(re_packet);
         }
-    }*/
+    }
+    pthread_mutex_unlock(&sr->cache.lock);
 }
 
 /*
