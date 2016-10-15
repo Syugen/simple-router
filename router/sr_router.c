@@ -273,12 +273,13 @@ void sr_handle_ip_others(struct sr_instance* sr,
      * This is following the instruction in sr_arpcache.h line 11-19. */
     struct sr_arpentry *arp_entry;
     if (NULL == (arp_entry = sr_arpcache_lookup(&(sr->cache), ip_hdr->ip_dst))) {
-        printf("No cache found. Saving. Will send after getting ARP reply.\n");
+        printf("No cache found. Saving. Broadcast ARP request first.\n");
         struct sr_arpreq *arp_req;
         arp_req = sr_arpcache_queuereq(&(sr->cache), ip_hdr->ip_dst, packet,
                                        len, dest_interface->name);
         sr_arpcache_handle_arpreq(sr, arp_req);
     } else {
+        printf("Cache found.\n");
         sr_ethernet_hdr_t *re_eth_hdr = (sr_ethernet_hdr_t *) packet;
         memcpy(re_eth_hdr->ether_dhost, arp_entry->mac, ETHER_ADDR_LEN);
         memcpy(re_eth_hdr->ether_shost, dest_interface->addr, ETHER_ADDR_LEN);

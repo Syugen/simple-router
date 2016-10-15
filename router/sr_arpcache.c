@@ -15,10 +15,10 @@
 void sr_arpcache_handle_arpreq(struct sr_instance *sr, struct sr_arpreq *req) {
     pthread_mutex_lock(&sr->cache.lock);
 
-    printf("Managing ARP request.\n");
+    printf("       Managing ARP request.\n");
     if (difftime(time(NULL), req->sent) > 1.0) {
         if (req->times_sent >= 5) {
-            printf("Cannot find this host.\n");
+            printf("       Cannot find this host.\n");
             /* Get the link list of all packets related to this request and
              * send ICMP host unreachable for all of them. */
             struct sr_packet *packet;
@@ -29,7 +29,7 @@ void sr_arpcache_handle_arpreq(struct sr_instance *sr, struct sr_arpreq *req) {
             sr_arpreq_destroy(&(sr->cache), req);
         }
         else {
-            printf("Sending ARP request.\n");
+            printf("       Sending ARP request.\n");
             req->sent = time(NULL);
             req->times_sent++;
 
@@ -79,7 +79,7 @@ void sr_arpcache_sweepreqs(struct sr_instance *sr) {
     /* This is following the instruction in sr_arpcache.h line 51-59. */
     struct sr_arpreq *req, *req_next;
     for(req = sr->cache.requests; req; req = req_next) {
-        printf("Sweeping request.\n");
+        printf("------ If you see this, ARP has been no reponsing for >1s.\n");
         req_next = req->next;
         sr_arpcache_handle_arpreq(sr, req);
     }
