@@ -138,7 +138,8 @@ void sr_handle_arp_request(struct sr_instance* sr,
         return;
     }
 
-    /* TODO need to cache it if it has not been cached!!!!!!!!!!!!!!!!!! */
+    /* If I amd the target, cache it. */
+    sr_arpcache_insert(&(sr->cache), arp_hdr->ar_sha, arp_hdr->ar_sip);
 
     /* Create reply packet and initialize headers. */
     uint8_t* re_packet = sr_malloc_packet(len, "ARP reply");
