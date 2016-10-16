@@ -27,13 +27,11 @@ void sr_init_ethernet_hdr(uint8_t* re_packet,
                           uint8_t* packet,
                           struct sr_if* interface)
 {
-    /* Reply packet is similar to request, so copy first. */
-    memcpy(re_packet, packet, sizeof(sr_ethernet_hdr_t));
-
-    /* Modify source and destination MAC address of Ethernet header. */
     sr_ethernet_hdr_t* re_ethernet_hdr = (sr_ethernet_hdr_t*) re_packet;
-    memcpy(re_ethernet_hdr->ether_dhost, re_ethernet_hdr->ether_shost, ETHER_ADDR_LEN);
+    sr_ethernet_hdr_t* ethernet_hdr = (sr_ethernet_hdr_t*) packet;
+    memcpy(re_ethernet_hdr->ether_dhost, ethernet_hdr->ether_shost, ETHER_ADDR_LEN);
     memcpy(re_ethernet_hdr->ether_shost, interface->addr, ETHER_ADDR_LEN);
+    re_ethernet_hdr->ether_type = ethernet_hdr->ether_type;
 }
 
 /* Initialize the ARP header of re_packet.
@@ -74,7 +72,8 @@ void sr_init_ip_hdr(uint8_t* re_packet,
     sr_ip_hdr_t* ip_hdr = (sr_ip_hdr_t*) (packet + sizeof(sr_ethernet_hdr_t));
     memcpy(re_ip_hdr, ip_hdr, sizeof(sr_ip_hdr_t));
     re_ip_hdr->ip_len = htons(len);
-    re_ip_hdr->ip_ttl = 100;                   /* TODO default 64, sr_solution 100 */
+    re_ip_hdr->ip_id = 0;
+    re_ip_hdr->ip_ttl = 64;                   /* TODO default 64, sr_solution 100 */
     re_ip_hdr->ip_p = ip_protocol;
     re_ip_hdr->ip_dst = ip_hdr->ip_src;
     re_ip_hdr->ip_src = interface->ip;
@@ -101,11 +100,11 @@ void sr_init_icmp_hdr(uint8_t *re_packet, uint8_t *packet,
     } else if (type == 3 || type == 11) {
         sr_icmp_t3_hdr_t* re_icmp_t3_hdr = (sr_icmp_t3_hdr_t*)re_icmp_hdr;
         sr_ip_hdr_t* ip_hdr = (sr_ip_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
-        sr_ip_hdr_t* ip_in_icmp_hdr = (sr_ip_hdr_t*)(re_icmp_t3_hdr->data);
+        /*sr_ip_hdr_t* ip_in_icmp_hdr = (sr_ip_hdr_t*)(re_icmp_t3_hdr->data);*/
 
         /* Copy the header of IP packet and first 8 bytes. */
         memcpy(re_icmp_t3_hdr->data, ip_hdr, ICMP_DATA_SIZE);
-        ip_in_icmp_hdr->ip_len = htons(ICMP_DATA_SIZE);
+        /*ip_in_icmp_hdr->ip_len = htons(ICMP_DATA_SIZE);*/
         re_icmp_t3_hdr->icmp_type = type;
         re_icmp_t3_hdr->icmp_code = code_or_len;
         re_icmp_t3_hdr->unused = re_icmp_t3_hdr->next_mtu = 0;
