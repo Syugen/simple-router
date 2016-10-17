@@ -256,7 +256,7 @@ void sr_handle_ip_others(struct sr_instance* sr,
     sr_ip_hdr_t* ip_hdr = (sr_ip_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
 
     /* TTL == 0. Life end. */
-    if (ip_hdr->ip_ttl - 1 == 0) {
+    if (--ip_hdr->ip_ttl == 0) {
         printf("TTL == 0. You are a dead man.\n");
         sr_create_icmp_t3_template(sr, packet, interface, 11, 0);
         return;
@@ -270,7 +270,11 @@ void sr_handle_ip_others(struct sr_instance* sr,
         return;
     }
 
-    /* Destination found. Find it in ARP cache.
+    /* Destination found. Re-calculate checksum. */
+    ip_hdr->ip_sum = 0;
+    ip_hdr->ip_sum = cksum(ip_hdr, sizeof(sr_ip_hdr_t));
+
+    /* Find it in ARP cache.
      * This is following the instruction in sr_arpcache.h line 11-19. */
     struct sr_arpentry *arp_entry;
     if (NULL == (arp_entry = sr_arpcache_lookup(&(sr->cache), ip_hdr->ip_dst))) {
