@@ -1,5 +1,7 @@
 *.d
 sr
+*.tar.gz
+*.pcap
 
 # Object files
 *.o
