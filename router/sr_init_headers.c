@@ -65,8 +65,8 @@ void sr_init_arp_hdr(uint8_t* re_packet,
 void sr_init_ip_hdr(uint8_t* re_packet,
                     uint8_t* packet,
                     unsigned int len,
-                    struct sr_if* interface,
-                    unsigned int ip_protocol)
+                    unsigned int ip_protocol,
+                    uint32_t src_ip)
 {
     sr_ip_hdr_t* re_ip_hdr = (sr_ip_hdr_t*) (re_packet + sizeof(sr_ethernet_hdr_t));
     sr_ip_hdr_t* ip_hdr = (sr_ip_hdr_t*) (packet + sizeof(sr_ethernet_hdr_t));
@@ -77,7 +77,7 @@ void sr_init_ip_hdr(uint8_t* re_packet,
     re_ip_hdr->ip_ttl = 100;            /* Imitating sr_solution */
     re_ip_hdr->ip_p = ip_protocol;
     re_ip_hdr->ip_dst = ip_hdr->ip_src;
-    re_ip_hdr->ip_src = interface->ip;
+    re_ip_hdr->ip_src = src_ip;
     re_ip_hdr->ip_sum = 0;
     re_ip_hdr->ip_sum = cksum(re_ip_hdr, sizeof(sr_ip_hdr_t));
 }
@@ -96,7 +96,7 @@ void sr_init_icmp_hdr(uint8_t *re_packet, uint8_t *packet,
         memcpy(re_icmp_hdr, icmp_hdr, code_or_len);
         re_icmp_hdr->icmp_type = re_icmp_hdr->icmp_code = 0;
         re_icmp_hdr->icmp_sum = 0;
-        re_icmp_hdr->icmp_sum = cksum(re_icmp_hdr, sizeof(sr_icmp_hdr_t));
+        re_icmp_hdr->icmp_sum = cksum(re_icmp_hdr, code_or_len);
         return;
     } else if (type == 3 || type == 11) {
         sr_icmp_t3_hdr_t* re_icmp_t3_hdr = (sr_icmp_t3_hdr_t*)re_icmp_hdr;
@@ -127,7 +127,7 @@ void sr_create_icmp_t3_template(struct sr_instance* sr,
     if (!re_packet) return;
     int ip_len = sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_t3_hdr_t);
     sr_init_ethernet_hdr(re_packet, packet, interface);
-    sr_init_ip_hdr(re_packet, packet, ip_len, interface, ip_protocol_icmp);
+    sr_init_ip_hdr(re_packet, packet, ip_len, ip_protocol_icmp, interface->ip);
     sr_init_icmp_hdr(re_packet, packet, type, code);
 
     if (type == 3 && code == 0)

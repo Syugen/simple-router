@@ -71,14 +71,14 @@ void sr_handle_arp_packet(struct sr_instance* , uint8_t * , unsigned int , struc
 void sr_handle_ip_packet(struct sr_instance* , uint8_t * , unsigned int , struct sr_if* );
 void sr_handle_arp_request(struct sr_instance* , uint8_t * , unsigned int , struct sr_if* );
 void sr_handle_arp_reply(struct sr_instance* , sr_arp_hdr_t* , struct sr_if* );
-void sr_handle_ip_icmp_me(struct sr_instance* , uint8_t * , unsigned int , struct sr_if* );
+void sr_handle_ip_icmp_me(struct sr_instance* , uint8_t * , unsigned int , struct sr_if* , uint32_t);
 void sr_handle_ip_others(struct sr_instance* , uint8_t* , unsigned int , struct sr_if* interface);
 
 /* -- sr_init_headers.c -- */
 uint8_t* sr_malloc_packet(unsigned int , char* );
 void sr_init_ethernet_hdr(uint8_t* , uint8_t * , struct sr_if* );
 void sr_init_arp_hdr(uint8_t* , uint8_t * , struct sr_if* );
-void sr_init_ip_hdr(uint8_t* , uint8_t * , unsigned int , struct sr_if* , unsigned int );
+void sr_init_ip_hdr(uint8_t* , uint8_t * , unsigned int , unsigned int , uint32_t);
 void sr_init_icmp_hdr(uint8_t* , uint8_t * , unsigned int , unsigned int );
 void sr_create_icmp_t3_template(struct sr_instance* , uint8_t * , struct sr_if* , unsigned int , unsigned int );
 

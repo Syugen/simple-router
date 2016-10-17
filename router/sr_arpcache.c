@@ -13,8 +13,6 @@
 #include "sr_rt.h" /* Added by our group. */
 
 void sr_arpcache_handle_arpreq(struct sr_instance *sr, struct sr_arpreq *req) {
-    pthread_mutex_lock(&sr->cache.lock);
-
     printf("       Managing ARP request.\n");
     if (difftime(time(NULL), req->sent) > 1.0) {
         if (req->times_sent >= 5) {
@@ -59,7 +57,7 @@ void sr_arpcache_handle_arpreq(struct sr_instance *sr, struct sr_arpreq *req) {
             arp_hdr->ar_sip = dest_interface->ip;
             arp_hdr->ar_tip = req->ip;
             memcpy(arp_hdr->ar_sha, dest_interface->addr, ETHER_ADDR_LEN);
-            memset(arp_hdr->ar_tha, 255, ETHER_ADDR_LEN);
+            memset(arp_hdr->ar_tha, 0, ETHER_ADDR_LEN);
 
             printf("       Broadcasting ARP request... ");
             sr_send_packet(sr, re_packet, headers_len, dest_interface->name);
@@ -67,7 +65,6 @@ void sr_arpcache_handle_arpreq(struct sr_instance *sr, struct sr_arpreq *req) {
             free(re_packet);
         }
     }
-    pthread_mutex_unlock(&sr->cache.lock);
 }
 
 /*

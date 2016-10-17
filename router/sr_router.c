@@ -133,7 +133,7 @@ void sr_handle_arp_request(struct sr_instance* sr,
     printf_addr_ip_int(htonl(arp_hdr->ar_tip));
 
     /* Check the interface list if I am the target. If not, don't reply. */
-    if (!sr_if_contains_ip(interface, htonl(arp_hdr->ar_tip))) {
+    if (!sr_if_contains_ip(interface, arp_hdr->ar_tip)) {
         printf("       I don't have that IP address. Can't help you. Dropping.\n");
         return;
     }
@@ -159,10 +159,6 @@ void sr_handle_arp_reply(struct sr_instance* sr,
                          struct sr_if* interface)
 {
     printf("       Received response\n");
-
-    /* Not sure if lock is needed. (I think not.) Do this for safety. */
-    pthread_mutex_lock(&sr->cache.lock);
-
     /* TODO If this ARP is not for me. Would this happen? */
 
     /* This is following the instruction in sr_arpcache.h line 39-47. */
@@ -186,7 +182,6 @@ void sr_handle_arp_reply(struct sr_instance* sr,
         }
         sr_arpreq_destroy(&sr->cache, req);
     }
-    pthread_mutex_unlock(&sr->cache.lock);
 }
 
 void sr_handle_ip_packet(struct sr_instance* sr,
@@ -197,11 +192,12 @@ void sr_handle_ip_packet(struct sr_instance* sr,
     sr_ip_hdr_t* ip_hdr = (sr_ip_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
 
     /* IP Packet for me */
-    if (sr_if_contains_ip(interface, htonl(ip_hdr->ip_dst))) {
+    struct sr_if* dest_interface = sr_if_contains_ip(interface, ip_hdr->ip_dst);
+    if (dest_interface) {
         switch (ip_hdr->ip_p) {
             case ip_protocol_icmp:
                 printf("ICMP for me - ");
-                sr_handle_ip_icmp_me(sr, packet, len, interface);
+                sr_handle_ip_icmp_me(sr, packet, len, interface, dest_interface->ip);
                 break;
             case ip_protocol_tcp: /* Added in sr_protocol.h by our group */
             case ip_protocol_udp: /* Added in sr_protocol.h by our group */
@@ -222,7 +218,8 @@ void sr_handle_ip_packet(struct sr_instance* sr,
 void sr_handle_ip_icmp_me(struct sr_instance* sr,
                           uint8_t* packet,
                           unsigned int len,
-                          struct sr_if* interface)
+                          struct sr_if* interface,
+                          uint32_t src_ip)
 {
     /* Only handle the ICMP echo request (type == 8, code == 0). */
     int icmp_offset = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t);
@@ -235,7 +232,7 @@ void sr_handle_ip_icmp_me(struct sr_instance* sr,
         if (!re_packet) return;
         int ip_len = len - sizeof(sr_ethernet_hdr_t);
         sr_init_ethernet_hdr(re_packet, packet, interface);
-        sr_init_ip_hdr(re_packet, packet, ip_len, interface, ip_protocol_icmp);
+        sr_init_ip_hdr(re_packet, packet, ip_len, ip_protocol_icmp, src_ip);
         sr_init_icmp_hdr(re_packet, packet, 0, len - icmp_offset);
 
         printf("       Sending ICMP echo reply... ");
