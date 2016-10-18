@@ -133,7 +133,7 @@ void sr_handle_arp_request(struct sr_instance* sr,
     printf_addr_ip_int(htonl(arp_hdr->ar_tip));
 
     /* Check the interface list if I am the target. If not, don't reply. */
-    if (!sr_if_contains_ip(interface, arp_hdr->ar_tip)) {
+    if (!sr_if_contains_ip(sr, arp_hdr->ar_tip)) {
         printf("       I don't have that IP address. Can't help you. Dropping.\n");
         return;
     }
@@ -193,7 +193,7 @@ void sr_handle_ip_packet(struct sr_instance* sr,
     sr_ip_hdr_t* ip_hdr = (sr_ip_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
 
     /* IP Packet for me */
-    struct sr_if* dest_interface = sr_if_contains_ip(interface, ip_hdr->ip_dst);
+    struct sr_if* dest_interface = sr_if_contains_ip(sr, ip_hdr->ip_dst);
     if (dest_interface) {
         uint32_t dst_ip = dest_interface->ip;
         switch (ip_hdr->ip_p) {

@@ -196,9 +196,9 @@ void sr_print_if(struct sr_if* iface)
 
 /* Added by our group. Return the interface whose IP is equal to the given IP;
  * return NULL otherwise. IP is in host order. */
-struct sr_if* sr_if_contains_ip(struct sr_if* iface, uint32_t ip)
+struct sr_if* sr_if_contains_ip(struct sr_instance* sr, uint32_t ip)
 {
-    struct sr_if* if_walker = iface;
+    struct sr_if* if_walker = sr->if_list;
     while(if_walker) {
         if(if_walker->ip == ip) {
             return if_walker;
