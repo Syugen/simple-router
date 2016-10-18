@@ -138,8 +138,9 @@ void sr_handle_arp_request(struct sr_instance* sr,
         return;
     }
 
-    /* If I amd the target, cache it. */
-    sr_arpcache_insert(&(sr->cache), arp_hdr->ar_sha, arp_hdr->ar_sip);
+    /* Different from some source on the Internet, in sr_solution, even if the
+    router is the target, it does not cache it. So this line is commented. */
+    /*sr_arpcache_insert(&(sr->cache), arp_hdr->ar_sha, arp_hdr->ar_sip);*/
 
     /* Create reply packet and initialize headers. */
     uint8_t* re_packet = sr_malloc_packet(len, "ARP reply");
@@ -228,7 +229,6 @@ void sr_handle_ip_icmp_me(struct sr_instance* sr,
     if (icmp_hdr->icmp_type == 8 && icmp_hdr->icmp_code == 0) {
         printf("Echo Request.\n");
 
-        /* Create reply packet and initialize headers. */
         uint8_t* re_packet = sr_malloc_packet(len, "ICMP echo reply");
         if (!re_packet) return;
         int ip_len = len - sizeof(sr_ethernet_hdr_t);
@@ -236,9 +236,7 @@ void sr_handle_ip_icmp_me(struct sr_instance* sr,
         sr_init_ip_hdr(re_packet, packet, ip_len, ip_protocol_icmp, src_ip);
         sr_init_icmp_hdr(re_packet, packet, 0, len - icmp_offset);
 
-        printf("       Sending ICMP echo reply... ");
-        sr_send_packet(sr, re_packet, len, interface->name);
-        printf("Done.\n");
+        sr_arpcache_queue_or_send(sr, re_packet, len, interface);
         free(re_packet);
     } else {
         printf("Not Echo Request (type unchecked).\n");
@@ -272,23 +270,6 @@ void sr_handle_ip_others(struct sr_instance* sr,
     ip_hdr->ip_sum = 0;
     ip_hdr->ip_sum = cksum(ip_hdr, sizeof(sr_ip_hdr_t));
 
-    /* Find it in ARP cache.
-     * This is following the instruction in sr_arpcache.h line 11-19. */
-    struct sr_arpentry *arp_entry;
-    if (NULL == (arp_entry = sr_arpcache_lookup(&(sr->cache), ip_hdr->ip_dst))) {
-        printf("No cache found. Saving. Broadcast ARP request first.\n");
-        struct sr_arpreq *arp_req;
-        arp_req = sr_arpcache_queuereq(&(sr->cache), ip_hdr->ip_dst, packet,
-                                       len, dest_interface->name);
-        sr_arpcache_handle_arpreq(sr, arp_req);
-    } else {
-        printf("Cache found.\n");
-        sr_ethernet_hdr_t *re_eth_hdr = (sr_ethernet_hdr_t *) packet;
-        memcpy(re_eth_hdr->ether_dhost, arp_entry->mac, ETHER_ADDR_LEN);
-        memcpy(re_eth_hdr->ether_shost, dest_interface->addr, ETHER_ADDR_LEN);
-        printf("       Sending IP packet to next hop... ");
-        sr_send_packet(sr, packet, len, dest_interface->name);
-        printf("Done.\n");
-        free(arp_entry);
-    }
+    /* Look up in ARP cache, if found, send it; if not, queue it. */
+    sr_arpcache_queue_or_send(sr, packet, len, dest_interface);
 }

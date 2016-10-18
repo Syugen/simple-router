@@ -68,6 +68,34 @@ void sr_arpcache_handle_arpreq(struct sr_instance *sr, struct sr_arpreq *req) {
     }
 }
 
+void sr_arpcache_queue_or_send(struct sr_instance* sr,
+                               uint8_t* packet,
+                               unsigned int len,
+                               struct sr_if* interface)
+{
+    sr_ip_hdr_t* ip_hdr = (sr_ip_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
+
+    /* Find it in ARP cache.
+     * This is following the instruction in sr_arpcache.h line 11-19. */
+    struct sr_arpentry *arp_entry;
+    if (!(arp_entry = sr_arpcache_lookup(&(sr->cache), ip_hdr->ip_dst))) {
+        printf("No cache found. Saving. Broadcast ARP request first.\n");
+        struct sr_arpreq *arp_req;
+        arp_req = sr_arpcache_queuereq(&(sr->cache), ip_hdr->ip_dst, packet,
+                                       len, interface->name);
+        sr_arpcache_handle_arpreq(sr, arp_req);
+    } else {
+        printf("Cache found.\n");
+        sr_ethernet_hdr_t *re_eth_hdr = (sr_ethernet_hdr_t *) packet;
+        memcpy(re_eth_hdr->ether_dhost, arp_entry->mac, ETHER_ADDR_LEN);
+        memcpy(re_eth_hdr->ether_shost, interface->addr, ETHER_ADDR_LEN);
+        printf("       Sending IP packet to next hop... ");
+        sr_send_packet(sr, packet, len, interface->name);
+        printf("Done.\n");
+        free(arp_entry);
+    }
+}
+
 /*
   This function gets called every second. For each request sent out, we keep
   checking whether we should resend an request or destroy the arp request.
