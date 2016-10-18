@@ -185,10 +185,11 @@ struct sr_if* sr_longest_prefix_match(struct sr_instance* sr,
 {
     struct sr_rt *rt_walker, *rt_longest = NULL;
     for (rt_walker = sr->routing_table; rt_walker; rt_walker = rt_walker->next) {
-        if (rt_walker->dest.s_addr == (rt_walker->mask.s_addr & ip_dest) &&
-            (!rt_longest || rt_walker->mask.s_addr >= rt_longest->mask.s_addr)) {
+        uint32_t entry_mask = rt_walker->dest.s_addr & rt_walker->mask.s_addr;
+        uint32_t ip_mask = ip_dest & rt_walker->mask.s_addr;
+        int is_longest = !rt_longest || rt_walker->mask.s_addr >= rt_longest->mask.s_addr;
+        if (entry_mask == ip_mask && is_longest)
             rt_longest = rt_walker;
-        }
     }
     return rt_longest ? sr_get_interface(sr, rt_longest->interface) : NULL;
 }

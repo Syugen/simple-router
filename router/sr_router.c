@@ -212,7 +212,7 @@ void sr_handle_ip_packet(struct sr_instance* sr,
     } else {  /* Not for me */
         printf("ICMP/TCP/UDP/... for ");
         printf_addr_ip_int(htonl(ip_hdr->ip_dst));
-        printf(" - ");
+        printf("\n");
         sr_handle_ip_others(sr, packet, len, interface);
     }
 }
@@ -253,7 +253,7 @@ void sr_handle_ip_others(struct sr_instance* sr,
 
     /* TTL == 0. Life end. */
     if (--ip_hdr->ip_ttl == 0) {
-        printf("TTL == 0. You are a dead man.\n");
+        printf("       TTL == 0. You are a dead man.\n");
         sr_create_icmp_t3_template(sr, packet, interface, interface->ip, 11, 0);
         return;
     }
@@ -261,7 +261,7 @@ void sr_handle_ip_others(struct sr_instance* sr,
     /* Life not end, but destination not in routing table. */
     struct sr_if* dest_interface = sr_longest_prefix_match(sr, ip_hdr->ip_dst);
     if (!dest_interface) {
-        printf("Cannot find destination on routing table.\n");
+        printf("       Cannot find destination on routing table.\n");
         sr_create_icmp_t3_template(sr, packet, interface, interface->ip, 3, 0);
         return;
     }

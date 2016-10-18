@@ -14,20 +14,20 @@
 
 void sr_arpcache_handle_arpreq(struct sr_instance *sr, struct sr_arpreq *req) {
     printf("       Managing ARP request.\n");
-    if (difftime(time(NULL), req->sent) > 1.0) {
+    if (difftime(time(NULL), req->sent) > 0.9) {
         if (req->times_sent >= 5) {
             printf("       Cannot find this host.\n");
             /* Get the link list of all packets related to this request and
              * send ICMP host unreachable for all of them. */
             struct sr_packet *packet;
             for (packet = req->packets; packet; packet = packet->next) {
-                struct sr_if *interface = sr_get_interface(sr, packet->iface);
-                sr_create_icmp_t3_template(sr, packet->buf, interface,
-                                           interface->ip, 3, 1);
+                sr_ip_hdr_t* ip_hdr = (sr_ip_hdr_t*)(packet->buf + sizeof(sr_ethernet_hdr_t));
+                struct sr_if* dest_interface = sr_longest_prefix_match(sr, ip_hdr->ip_src);
+                sr_create_icmp_t3_template(sr, packet->buf, dest_interface,
+                                           dest_interface->ip, 3, 1);
             }
             sr_arpreq_destroy(&(sr->cache), req);
-        }
-        else {
+        } else {
             printf("       Sending ARP request.\n");
             req->sent = time(NULL);
             req->times_sent++;
@@ -77,6 +77,7 @@ void sr_arpcache_queue_or_send(struct sr_instance* sr,
 
     /* Find it in ARP cache.
      * This is following the instruction in sr_arpcache.h line 11-19. */
+    printf("       Finding in cache - ");
     struct sr_arpentry *arp_entry;
     if (!(arp_entry = sr_arpcache_lookup(&(sr->cache), ip_hdr->ip_dst))) {
         printf("No cache found. Saving. Broadcast ARP request first.\n");
@@ -105,7 +106,7 @@ void sr_arpcache_sweepreqs(struct sr_instance *sr) {
     /* This is following the instruction in sr_arpcache.h line 51-59. */
     struct sr_arpreq *req, *req_next;
     for(req = sr->cache.requests; req; req = req_next) {
-        printf("------ If you see this, ARP has been no reponsing for >1s.\n");
+        printf("------ If you see this, ARP has been no reponding for >1s.\n");
         req_next = req->next;
         sr_arpcache_handle_arpreq(sr, req);
     }

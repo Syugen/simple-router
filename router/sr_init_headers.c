@@ -33,7 +33,7 @@ uint8_t* sr_malloc_packet(unsigned int len, char* message)
  * Parameters:
  * re_packet - the packet that is going to be sent.
  * packet - the original packet received, complete with ethernet frame.
- * interface - the instance of the interface that received the packet.
+ * interface - the interface that is going to send the packet.
  *----------------------------------------------------------------------------*/
 void sr_init_ethernet_hdr(uint8_t* re_packet,
                           uint8_t* packet,
@@ -55,7 +55,7 @@ void sr_init_ethernet_hdr(uint8_t* re_packet,
  * Parameters:
  * re_packet - the packet that is going to be sent.
  * packet - the original packet received, complete with ethernet frame.
- * interface - the instance of the interface that received the packet.
+ * interface - the interface that is going to send the packet.
  *----------------------------------------------------------------------------*/
 void sr_init_arp_hdr(uint8_t* re_packet,
                      uint8_t* packet,
@@ -150,7 +150,8 @@ void sr_init_icmp_hdr(uint8_t *re_packet, uint8_t *packet,
  * Parameters:
  * sr - the instance of the simple router.
  * packet - the original packet received, complete with ethernet frame.
- * interface - the instance of the interface that RECEIVED the packet.
+ * interface - the interface that RECEIVED the original packet, also the one
+ *             that is going to send the response packet (ICMP type 3/11).
  * src_ip - the IP address of the router's interface through which the packet
  *          is going to be sent. It is usually the same as interface->ip, but
  *          can be different for ICMP type 3 code 3.
@@ -164,8 +165,6 @@ void sr_create_icmp_t3_template(struct sr_instance* sr,
                                 unsigned int type,
                                 unsigned int code)
 {
-    if (!src_ip) src_ip = interface->ip;
-
     int headers_len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) +
                       sizeof(sr_icmp_t3_hdr_t);
     uint8_t* re_packet = sr_malloc_packet(headers_len, "ICMP type 3/11");
