@@ -7,7 +7,14 @@
 #include "sr_protocol.h"
 #include "sr_utils.h"
 
-/* Allocate space for a packet to reply */
+/*------------------------------------------------------------------------------
+ * Allocate space for a packet to reply.
+ * Parameters:
+ * len - the length that is going to allocate.
+ * message - the message that would br printed if the allocation is failed.
+ * Return:
+ * the pointer to the allocated space if it is successfull; NULL otherwise.
+ *----------------------------------------------------------------------------*/
 uint8_t* sr_malloc_packet(unsigned int len, char* message)
 {
     uint8_t* re_packet;
@@ -18,11 +25,16 @@ uint8_t* sr_malloc_packet(unsigned int len, char* message)
     return re_packet;
 }
 
-/* Initialize the ethernet header of re_packet. Use for REPLY ONLY.
+/*------------------------------------------------------------------------------
+ * Initialize the ethernet header of re_packet. Use for REPLY ONLY.
  * The destionation of re_packet is set to be the source of packet.
  * The source of re_packet is set to be the address in the interface.
- * The type REMAINS UNCHANGED, that is, if packet is ARP, re_packet is also ARP.
- * Same for IP. */
+ * The type is set to be the SAME as the one in packet.
+ * Parameters:
+ * re_packet - the packet that is going to be sent.
+ * packet - the original packet received, complete with ethernet frame.
+ * interface - the instance of the interface that received the packet.
+ *----------------------------------------------------------------------------*/
 void sr_init_ethernet_hdr(uint8_t* re_packet,
                           uint8_t* packet,
                           struct sr_if* interface)
@@ -34,11 +46,17 @@ void sr_init_ethernet_hdr(uint8_t* re_packet,
     re_ethernet_hdr->ether_type = ethernet_hdr->ether_type;
 }
 
-/* Initialize the ARP header of re_packet.
+/*------------------------------------------------------------------------------
+ * Initialize the ARP header of re_packet.
  * If packet is NULL, then re_packet is initialized to be a broadcast one.
  * Otherwise, the destionation of re_packet is set to be the source of packet;
  * the source of re_packet is set to be the address in the interface;
- * and the operation code is set to be reply (0x0002). */
+ * and the operation code is set to be reply (0x0002).
+ * Parameters:
+ * re_packet - the packet that is going to be sent.
+ * packet - the original packet received, complete with ethernet frame.
+ * interface - the instance of the interface that received the packet.
+ *----------------------------------------------------------------------------*/
 void sr_init_arp_hdr(uint8_t* re_packet,
                      uint8_t* packet,
                      struct sr_if* interface)
@@ -57,11 +75,18 @@ void sr_init_arp_hdr(uint8_t* re_packet,
     }
 }
 
-/* Initialize the IP header of re_packet.
+/*------------------------------------------------------------------------------
+ * Initialize the IP header of re_packet.
  * The destionation of re_packet is set to be the source of packet;
- * the source of re_packet is set to be the address in the interface;
- * the length is set to be len passed in, the length of the packet;
- * and the ip protocol is set to be the given ip_protocol. */
+ * the source of re_packet is set to be the address in the interface.
+ * Parameters:
+ * re_packet - the packet that is going to be sent.
+ * packet - the original packet received, complete with ethernet frame.
+ * len - the length of the original packet.
+ * ip_protocol - for this simple router, only 1 (ICMP) is possible.
+ * src_ip - the IP address of the router's interface through which the packet
+ *          is going to be sent.
+ *----------------------------------------------------------------------------*/
 void sr_init_ip_hdr(uint8_t* re_packet,
                     uint8_t* packet,
                     unsigned int len,
@@ -82,9 +107,16 @@ void sr_init_ip_hdr(uint8_t* re_packet,
     re_ip_hdr->ip_sum = cksum(re_ip_hdr, sizeof(sr_ip_hdr_t));
 }
 
-/* Initialize the ICMP header of re_packet.
- * If type is 0 (echo request), then code_or_len refers to the length of the
- * ICMP packet; otherwise, it refers to the code. */
+/*------------------------------------------------------------------------------
+ * Initialize the ICMP header of re_packet.
+ * Parameters:
+ * re_packet - the packet that is going to be sent.
+ * packet - the original packet received, complete with ethernet frame.
+ * interface - the instance of the interface that received the packet.
+ * type - 0 for echo request, 3 for unreachable, 11 for timeout.
+ * code_or_len - if type is 0, then it refers to the length of the ICMP packet;
+ *               otherwise, it refers to the code.
+ *----------------------------------------------------------------------------*/
 void sr_init_icmp_hdr(uint8_t *re_packet, uint8_t *packet,
                       unsigned int type, unsigned int code_or_len)
 {
@@ -97,7 +129,6 @@ void sr_init_icmp_hdr(uint8_t *re_packet, uint8_t *packet,
         re_icmp_hdr->icmp_type = re_icmp_hdr->icmp_code = 0;
         re_icmp_hdr->icmp_sum = 0;
         re_icmp_hdr->icmp_sum = cksum(re_icmp_hdr, code_or_len);
-        return;
     } else if (type == 3 || type == 11) {
         sr_icmp_t3_hdr_t* re_icmp_t3_hdr = (sr_icmp_t3_hdr_t*)re_icmp_hdr;
         sr_ip_hdr_t* ip_hdr = (sr_ip_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
@@ -111,23 +142,37 @@ void sr_init_icmp_hdr(uint8_t *re_packet, uint8_t *packet,
         re_icmp_t3_hdr->icmp_sum = cksum(re_icmp_t3_hdr, sizeof(sr_icmp_t3_hdr_t));
     } else {
         printf("       Cannot create other types of ICMP packets.\n");
-        return;
     }
 }
 
+/*------------------------------------------------------------------------------
+ * Create an ICMP type 3/11 packet, initialize the headers, then send it.
+ * Parameters:
+ * sr - the instance of the simple router.
+ * packet - the original packet received, complete with ethernet frame.
+ * interface - the instance of the interface that RECEIVED the packet.
+ * src_ip - the IP address of the router's interface through which the packet
+ *          is going to be sent. It is usually the same as interface->ip, but
+ *          can be different for ICMP type 3 code 3.
+ * type - 3 for destination unreachable, 11 for timeout.
+ * code - 0 for net unreachable, 1 for host, 3 for port.
+ *----------------------------------------------------------------------------*/
 void sr_create_icmp_t3_template(struct sr_instance* sr,
                                 uint8_t * packet,
                                 struct sr_if* interface,
+                                uint32_t src_ip,
                                 unsigned int type,
                                 unsigned int code)
 {
+    if (!src_ip) src_ip = interface->ip;
+
     int headers_len = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t) +
                       sizeof(sr_icmp_t3_hdr_t);
     uint8_t* re_packet = sr_malloc_packet(headers_len, "ICMP type 3/11");
     if (!re_packet) return;
     int ip_len = sizeof(sr_ip_hdr_t) + sizeof(sr_icmp_t3_hdr_t);
     sr_init_ethernet_hdr(re_packet, packet, interface);
-    sr_init_ip_hdr(re_packet, packet, ip_len, ip_protocol_icmp, interface->ip);
+    sr_init_ip_hdr(re_packet, packet, ip_len, ip_protocol_icmp, src_ip);
     sr_init_icmp_hdr(re_packet, packet, type, code);
 
     if (type == 3 && code == 0)

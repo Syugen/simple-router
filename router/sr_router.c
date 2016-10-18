@@ -194,15 +194,16 @@ void sr_handle_ip_packet(struct sr_instance* sr,
     /* IP Packet for me */
     struct sr_if* dest_interface = sr_if_contains_ip(interface, ip_hdr->ip_dst);
     if (dest_interface) {
+        uint32_t dst_ip = dest_interface->ip;
         switch (ip_hdr->ip_p) {
             case ip_protocol_icmp:
                 printf("ICMP for me - ");
-                sr_handle_ip_icmp_me(sr, packet, len, interface, dest_interface->ip);
+                sr_handle_ip_icmp_me(sr, packet, len, interface, dst_ip);
                 break;
             case ip_protocol_tcp: /* Added in sr_protocol.h by our group */
             case ip_protocol_udp: /* Added in sr_protocol.h by our group */
                 printf("TCP/UDP for me.\n");
-                sr_create_icmp_t3_template(sr, packet, interface, 3, 3);
+                sr_create_icmp_t3_template(sr, packet, interface, dst_ip, 3, 3);
                 break;
             default:
                 printf("Not ICMP/TCP/UDP (type unchecked). Dropping.\n");
@@ -255,7 +256,7 @@ void sr_handle_ip_others(struct sr_instance* sr,
     /* TTL == 0. Life end. */
     if (--ip_hdr->ip_ttl == 0) {
         printf("TTL == 0. You are a dead man.\n");
-        sr_create_icmp_t3_template(sr, packet, interface, 11, 0);
+        sr_create_icmp_t3_template(sr, packet, interface, interface->ip, 11, 0);
         return;
     }
 
@@ -263,7 +264,7 @@ void sr_handle_ip_others(struct sr_instance* sr,
     struct sr_if* dest_interface = sr_longest_prefix_match(sr, ip_hdr->ip_dst);
     if (!dest_interface) {
         printf("Cannot find destination on routing table.\n");
-        sr_create_icmp_t3_template(sr, packet, interface, 3, 0);
+        sr_create_icmp_t3_template(sr, packet, interface, interface->ip, 3, 0);
         return;
     }
 

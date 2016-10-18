@@ -22,7 +22,8 @@ void sr_arpcache_handle_arpreq(struct sr_instance *sr, struct sr_arpreq *req) {
             struct sr_packet *packet;
             for (packet = req->packets; packet; packet = packet->next) {
                 struct sr_if *interface = sr_get_interface(sr, packet->iface);
-                sr_create_icmp_t3_template(sr, packet->buf, interface, 3, 1);
+                sr_create_icmp_t3_template(sr, packet->buf, interface,
+                                           interface->ip, 3, 1);
             }
             sr_arpreq_destroy(&(sr->cache), req);
         }

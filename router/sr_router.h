@@ -80,7 +80,7 @@ void sr_init_ethernet_hdr(uint8_t* , uint8_t * , struct sr_if* );
 void sr_init_arp_hdr(uint8_t* , uint8_t * , struct sr_if* );
 void sr_init_ip_hdr(uint8_t* , uint8_t * , unsigned int , unsigned int , uint32_t);
 void sr_init_icmp_hdr(uint8_t* , uint8_t * , unsigned int , unsigned int );
-void sr_create_icmp_t3_template(struct sr_instance* , uint8_t * , struct sr_if* , unsigned int , unsigned int );
+void sr_create_icmp_t3_template(struct sr_instance* , uint8_t * , struct sr_if* , uint32_t, unsigned int , unsigned int );
 
 /* -- sr_if.c -- */
 void sr_add_interface(struct sr_instance* , const char* );
