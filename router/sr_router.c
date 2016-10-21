@@ -85,14 +85,17 @@ void sr_handlepacket(struct sr_instance* sr,
     switch (ethertype(packet)) {
         case ethertype_arp: /* hex: 0x0806, dec: 2054 */
             printf("       ARP Packet - ");
+            if (!sanity_check_arp(len)) break;
             sr_handle_arp_packet(sr, packet, len, sr_interface);
             break;
         case ethertype_ip: /* hex: 0x0800, dec: 2048 */
             printf("       IP Packet - ");
+            if (!sanity_check_ip(packet, len)) break;
             sr_handle_ip_packet(sr, packet, len, sr_interface);
             break;
         default:
-            printf("       Unknown Packet. Dropping.\n");
+            printf("       Other type (unchecked)\n");
+            printf("!----! Other type ethernet cannot be handled. Dropping.\n");
     }
 
 }/* end sr_ForwardPacket */
@@ -108,7 +111,7 @@ void sr_handle_arp_packet(struct sr_instance* sr,
         unsigned int len,
         struct sr_if* interface/* lent */)
 {
-    sr_arp_hdr_t* arp_hdr = (sr_arp_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
+    sr_arp_hdr_t* arp_hdr = get_arp_header(packet);
     switch (htons(arp_hdr->ar_op)) {
         case arp_op_request: /* 0x0001 */
             printf("ARP Request\n");
@@ -119,7 +122,8 @@ void sr_handle_arp_packet(struct sr_instance* sr,
             sr_handle_arp_reply(sr, arp_hdr, interface);
             break;
         default:
-            printf("Not ARP Request/Reply (type unchecked). Dropping.\n");
+            printf("Other type (unchecked)\n");
+            printf("!----! Other type ARP cannot be handled. Dropping.\n");
     }
 }
 
@@ -128,13 +132,13 @@ void sr_handle_arp_request(struct sr_instance* sr,
                            unsigned int len,
                            struct sr_if* interface)
 {
-    sr_arp_hdr_t* arp_hdr = (sr_arp_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
+    sr_arp_hdr_t* arp_hdr = get_arp_header(packet);
     printf("       It is asking for MAC with IP address ");
     printf_addr_ip_int(htonl(arp_hdr->ar_tip));
 
     /* Check the interface list if I am the target. If not, don't reply. */
     if (!sr_if_contains_ip(sr, arp_hdr->ar_tip)) {
-        printf("       I don't have that IP address. Can't help you. Dropping.\n");
+        printf("!----! I don't have that IP address. Can't help. Dropping.\n");
         return;
     }
 
@@ -159,8 +163,10 @@ void sr_handle_arp_reply(struct sr_instance* sr,
                          sr_arp_hdr_t* arp_hdr,
                          struct sr_if* interface)
 {
-    printf("       Received response\n");
-    /* TODO If this ARP is not for me. Would this happen? */
+    /* ARP not for me. Not likely to happen, but just for safety. */
+    if (arp_hdr->ar_tip != interface->ip) {
+        printf("!----! This ARP reply is not for me. Dropping.\n");
+    }
 
     /* This is following the instruction in sr_arpcache.h line 39-47. */
     struct sr_arpreq *req;
@@ -186,11 +192,12 @@ void sr_handle_arp_reply(struct sr_instance* sr,
 }
 
 void sr_handle_ip_packet(struct sr_instance* sr,
-        uint8_t* packet/* lent */,
-        unsigned int len,
-        struct sr_if* interface/* lent */)
+                         uint8_t* packet/* lent */,
+                         unsigned int len,
+                         struct sr_if* interface/* lent */)
 {
-    sr_ip_hdr_t* ip_hdr = (sr_ip_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
+    if (!sanity_check_ip(packet, len)) return;
+    sr_ip_hdr_t* ip_hdr = get_ip_header(packet);
 
     /* IP Packet for me */
     struct sr_if* dest_interface = sr_if_contains_ip(sr, ip_hdr->ip_dst);
@@ -199,6 +206,7 @@ void sr_handle_ip_packet(struct sr_instance* sr,
         switch (ip_hdr->ip_p) {
             case ip_protocol_icmp:
                 printf("ICMP for me - ");
+                if (!sanity_check_icmp(packet, len)) break;
                 sr_handle_ip_icmp_me(sr, packet, len, interface, dst_ip);
                 break;
             case ip_protocol_tcp: /* Added in sr_protocol.h by our group */
@@ -232,9 +240,10 @@ void sr_handle_ip_icmp_me(struct sr_instance* sr,
         uint8_t* re_packet = sr_malloc_packet(len, "ICMP echo reply");
         if (!re_packet) return;
         int ip_len = len - sizeof(sr_ethernet_hdr_t);
+        int icmp_len = len - sizeof(sr_ethernet_hdr_t) - sizeof(sr_ip_hdr_t);
         sr_init_ethernet_hdr(re_packet, packet, interface);
         sr_init_ip_hdr(re_packet, packet, ip_len, ip_protocol_icmp, src_ip);
-        sr_init_icmp_hdr(re_packet, packet, 0, len - icmp_offset);
+        sr_init_icmp_hdr(re_packet, packet, 0, icmp_len);
 
         sr_arpcache_queue_or_send(sr, re_packet, len, interface);
         free(re_packet);
@@ -249,7 +258,7 @@ void sr_handle_ip_others(struct sr_instance* sr,
                          unsigned int len,
                          struct sr_if* interface)
 {
-    sr_ip_hdr_t* ip_hdr = (sr_ip_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
+    sr_ip_hdr_t* ip_hdr = get_ip_header(packet);
 
     /* TTL == 0. Life end. */
     if (--ip_hdr->ip_ttl == 0) {

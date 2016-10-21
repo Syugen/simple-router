@@ -1,8 +1,5 @@
 #ifndef _HEXDUMP_H
 #define _HEXDUMP_H
-
-void hexdump(void *mem, unsigned int len);
-
 #endif
 
 /*
@@ -34,6 +31,16 @@ void hexdump(void *mem, unsigned int len);
 
 #ifndef SR_UTILS_H
 #define SR_UTILS_H
+
+/* The following seven added by our group. */
+sr_ethernet_hdr_t* get_ethernet_header(uint8_t* packet);
+sr_arp_hdr_t* get_arp_header(uint8_t* packet);
+sr_ip_hdr_t* get_ip_header(uint8_t* packet);
+sr_icmp_hdr_t* get_icmp_header(uint8_t* packet);
+
+int sanity_check_arp(unsigned int len);
+int sanity_check_ip(uint8_t* packet, unsigned int len);
+int sanity_check_icmp(uint8_t* packet, unsigned int len);
 
 uint16_t cksum(const void *_data, int len);
 

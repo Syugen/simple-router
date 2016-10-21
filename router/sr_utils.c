@@ -9,49 +9,75 @@
 #ifndef HEXDUMP_COLS
 #define HEXDUMP_COLS 8
 #endif
-void hexdump(void *mem, unsigned int len)
-{
-        unsigned int i, j;
 
-        for(i = 0; i < len + ((len % HEXDUMP_COLS) ? (HEXDUMP_COLS - len % HEXDUMP_COLS) : 0); i++)
-        {
-                /* print offset */
-                if(i % HEXDUMP_COLS == 0)
-                {
-                        printf("0x%06x: ", i);
-                }
+#include "sr_protocol.h"
 
-                /* print hex data */
-                if(i < len)
-                {
-                        printf("%02x ", 0xFF & ((char*)mem)[i]);
-                }
-                else /* end of block, just aligning for ASCII dump */
-                {
-                        printf("   ");
-                }
+/* The following seven added by our group. */
+sr_ethernet_hdr_t* get_ethernet_header(uint8_t* packet) {
+    return (sr_ethernet_hdr_t*) packet;
+}
 
-                /* print ASCII dump */
-                if(i % HEXDUMP_COLS == (HEXDUMP_COLS - 1))
-                {
-                        for(j = i - (HEXDUMP_COLS - 1); j <= i; j++)
-                        {
-                                if(j >= len) /* end of block, not really printing */
-                                {
-                                        putchar(' ');
-                                }
-                                else if(isprint(((char*)mem)[j])) /* printable char */
-                                {
-                                        putchar(0xFF & ((char*)mem)[j]);
-                                }
-                                else /* other char */
-                                {
-                                        putchar('.');
-                                }
-                        }
-                        putchar('\n');
-                }
-        }
+sr_arp_hdr_t* get_arp_header(uint8_t* packet) {
+    return (sr_arp_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
+}
+
+sr_ip_hdr_t* get_ip_header(uint8_t* packet) {
+    return (sr_ip_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
+}
+
+sr_icmp_hdr_t* get_icmp_header(uint8_t* packet) {
+    int icmp_offset = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t);
+    return (sr_icmp_hdr_t*)(packet + icmp_offset);
+}
+
+int sanity_check_arp(unsigned int len) {
+    /* Check header length. */
+    if (len < sizeof(sr_ethernet_hdr_t) + sizeof(sr_arp_hdr_t)) {
+        printf("Sanity check: Packet length not enough. Dropping.\n");
+        return 0;
+    } else return 1;
+}
+
+int sanity_check_ip(uint8_t* packet, unsigned int len) {
+    /* Check header length. */
+    if (len < sizeof(sr_ethernet_hdr_t) + sizeof(sr_arp_hdr_t)) {
+        printf("Sanity check: Packet length not enough. Dropping.\n");
+        return 0;
+    }
+
+    /* Check sum. */
+    sr_ip_hdr_t* ip_hdr = get_ip_header(packet);
+    uint16_t actual_sum = ip_hdr->ip_sum;
+    ip_hdr->ip_sum = 0;
+    uint16_t expected_sum = cksum(ip_hdr, sizeof(sr_ip_hdr_t));
+    ip_hdr->ip_sum = actual_sum;
+
+    if(expected_sum != actual_sum) {
+        printf("Sanity check: Check sum failed. Dropping.\n");
+        return 0;
+    } else return 1;
+}
+
+int sanity_check_icmp(uint8_t* packet, unsigned int len) {
+    /* Check header length. */
+    if (len < sizeof(sr_ethernet_hdr_t) + sizeof(sr_arp_hdr_t) +
+              sizeof(sr_icmp_hdr_t)) {
+        printf("Sanity check: Packet length not enough. Dropping.\n");
+        return 0;
+    }
+
+    /* Check sum. */
+    sr_icmp_hdr_t* icmp_hdr = get_icmp_header(packet);
+    uint16_t actual_sum = icmp_hdr->icmp_sum;
+    icmp_hdr->icmp_sum = 0;
+    int icmp_len = len - sizeof(sr_ethernet_hdr_t) - sizeof(sr_ip_hdr_t);
+    uint16_t expected_sum = cksum(icmp_hdr, icmp_len);
+    icmp_hdr->icmp_sum = actual_sum;
+
+    if(expected_sum != actual_sum) {
+        printf("Sanity check: Check sum failed. Dropping.\n");
+        return 0;
+    } else return 1;
 }
 
 uint16_t cksum (const void *_data, int len) {

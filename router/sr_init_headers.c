@@ -39,8 +39,8 @@ void sr_init_ethernet_hdr(uint8_t* re_packet,
                           uint8_t* packet,
                           struct sr_if* interface)
 {
-    sr_ethernet_hdr_t* re_ethernet_hdr = (sr_ethernet_hdr_t*) re_packet;
-    sr_ethernet_hdr_t* ethernet_hdr = (sr_ethernet_hdr_t*) packet;
+    sr_ethernet_hdr_t* re_ethernet_hdr = get_ethernet_header(re_packet);
+    sr_ethernet_hdr_t* ethernet_hdr = get_ethernet_header(packet);
     memcpy(re_ethernet_hdr->ether_dhost, ethernet_hdr->ether_shost, ETHER_ADDR_LEN);
     memcpy(re_ethernet_hdr->ether_shost, interface->addr, ETHER_ADDR_LEN);
     re_ethernet_hdr->ether_type = ethernet_hdr->ether_type;
@@ -64,8 +64,8 @@ void sr_init_arp_hdr(uint8_t* re_packet,
     if (!packet) {
         /* TODO Broadcast. */
     } else {
-        sr_arp_hdr_t* re_arp_hdr = (sr_arp_hdr_t*) (re_packet + sizeof(sr_ethernet_hdr_t));
-        sr_arp_hdr_t* arp_hdr = (sr_arp_hdr_t*) (packet + sizeof(sr_ethernet_hdr_t));
+        sr_arp_hdr_t* re_arp_hdr = get_arp_header(re_packet);
+        sr_arp_hdr_t* arp_hdr = get_arp_header(packet);
         memcpy(re_arp_hdr, arp_hdr, sizeof(sr_arp_hdr_t));
         memcpy(re_arp_hdr->ar_sha, interface->addr, ETHER_ADDR_LEN);
         memcpy(re_arp_hdr->ar_tha, arp_hdr->ar_sha, ETHER_ADDR_LEN);
@@ -93,8 +93,8 @@ void sr_init_ip_hdr(uint8_t* re_packet,
                     unsigned int ip_protocol,
                     uint32_t src_ip)
 {
-    sr_ip_hdr_t* re_ip_hdr = (sr_ip_hdr_t*) (re_packet + sizeof(sr_ethernet_hdr_t));
-    sr_ip_hdr_t* ip_hdr = (sr_ip_hdr_t*) (packet + sizeof(sr_ethernet_hdr_t));
+    sr_ip_hdr_t* re_ip_hdr = get_ip_header(re_packet);
+    sr_ip_hdr_t* ip_hdr = get_ip_header(packet);
     memcpy(re_ip_hdr, ip_hdr, sizeof(sr_ip_hdr_t));
     re_ip_hdr->ip_len = htons(len);
     re_ip_hdr->ip_id = 0;               /* Imitating sr_solution */
@@ -117,21 +117,22 @@ void sr_init_ip_hdr(uint8_t* re_packet,
  * code_or_len - if type is 0, then it refers to the length of the ICMP packet;
  *               otherwise, it refers to the code.
  *----------------------------------------------------------------------------*/
-void sr_init_icmp_hdr(uint8_t *re_packet, uint8_t *packet,
-                      unsigned int type, unsigned int code_or_len)
+void sr_init_icmp_hdr(uint8_t *re_packet,
+                      uint8_t *packet,
+                      unsigned int type,
+                      unsigned int code_or_len)
 {
-    int icmp_offset = sizeof(sr_ethernet_hdr_t) + sizeof(sr_ip_hdr_t);
-    sr_icmp_hdr_t* re_icmp_hdr = (sr_icmp_hdr_t*)(re_packet + icmp_offset);
+    sr_icmp_hdr_t* re_icmp_hdr = get_icmp_header(re_packet);
     if (type == 0) {
         /* Not only copy header, but also the payload. */
-        sr_icmp_hdr_t* icmp_hdr = (sr_icmp_hdr_t*)(packet + icmp_offset);
+        sr_icmp_hdr_t* icmp_hdr = get_icmp_header(packet);
         memcpy(re_icmp_hdr, icmp_hdr, code_or_len);
         re_icmp_hdr->icmp_type = re_icmp_hdr->icmp_code = 0;
         re_icmp_hdr->icmp_sum = 0;
         re_icmp_hdr->icmp_sum = cksum(re_icmp_hdr, code_or_len);
     } else if (type == 3 || type == 11) {
         sr_icmp_t3_hdr_t* re_icmp_t3_hdr = (sr_icmp_t3_hdr_t*)re_icmp_hdr;
-        sr_ip_hdr_t* ip_hdr = (sr_ip_hdr_t*)(packet + sizeof(sr_ethernet_hdr_t));
+        sr_ip_hdr_t* ip_hdr = get_ip_header(packet);
 
         /* Copy the header of IP packet and first 8 bytes. */
         memcpy(re_icmp_t3_hdr->data, ip_hdr, ICMP_DATA_SIZE);
