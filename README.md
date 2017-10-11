@@ -1,5 +1,5 @@
 # Simple Router
--- README.md written by Yuan Zhou
+This README.md is written by Yuan Zhou
 ## Introduction
 Write a simple router with a static routing table. The router receives raw Ethernet frames, processes the packets just like a real router, then forwards them to the correct outgoing interface.
 ## Get Started
@@ -22,7 +22,7 @@ Start Mininet emulation by using the following command
 ./run_mininet.sh
 ```
 ### Setup and Start POX
-Checkout the POX version that we use in this assignment
+Start a new terminal, checkout the POX version that we use in this assignment
 ```
 cd /home/mininet/pox
 git checkout f95dd1a81584d716823bbf565fa68254416af603
@@ -33,4 +33,15 @@ cd ~/simple-router
 ln -s ../pox
 ./run_pox.sh
 ```
-TO BE CONTINUED
+### Start the Router
+Open yet another terminal (the third one). Run the binary file of the solution (correctly implemented router)
+```
+./sr_solution
+```
+## Develop
+Edit files in the `router` directory, compile and run the router by:
+```
+cd router
+make
+./sr
+```
